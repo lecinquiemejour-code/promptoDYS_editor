@@ -569,7 +569,7 @@ const Toolbar = ({
     { name: 'Vert', value: '#00cc00' },
     { name: 'Rouge', value: '#ff0000' },
     { name: 'Orange', value: '#ff9900' },
-    { name: 'Violet', value: '#ff00ff' }
+    { name: 'Violet', value: '#ff00ff' }, 
   ];
 
 
