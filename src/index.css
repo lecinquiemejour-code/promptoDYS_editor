@@ -1,0 +1,131 @@
+/* Import TailwindCSS compilé localement */
+@import './tailwind-compiled.css';
+
+/* Déclarations @font-face pour OpenDyslexic - fichiers locaux via Webpack */
+@font-face {
+  font-family: 'OpenDyslexic';
+  src: url('./assets/fonts/OpenDyslexic-Regular.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'OpenDyslexic';
+  src: url('./assets/fonts/OpenDyslexic-Bold.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Google Fonts Lexend - Version locale fallback */
+@font-face {
+  font-family: 'Lexend';
+  src: local('Lexend'), local('Lexend-Regular');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Lexend';
+  src: local('Lexend Medium'), local('Lexend-Medium');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Lexend';
+  src: local('Lexend SemiBold'), local('Lexend-SemiBold');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Variables CSS pour thème */
+:root {
+  --dys-bg-color: #fffef7;
+  --dys-text-color: #1e3a8a;
+  --dys-font-family: 'Verdana', Arial, sans-serif;
+  --dys-font-size: 14px;
+  --dys-line-height: 1.5;
+}
+
+body {
+  margin: 0;
+  font-family: var(--dys-font-family);
+  font-size: var(--dys-font-size);
+  line-height: var(--dys-line-height);
+  color: var(--dys-text-color);
+  background-color: var(--dys-bg-color);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3,
+.markdown-content h4,
+.markdown-content h5,
+.markdown-content h6 {
+  margin-top: 1.5em;
+  margin-bottom: 0.5em;
+  font-weight: 600;
+}
+
+.markdown-content p {
+  margin-bottom: 1em;
+  line-height: 1.6;
+}
+
+.markdown-content ul,
+.markdown-content ol {
+  margin-bottom: 1em;
+  padding-left: 1.5em;
+}
+
+.markdown-content blockquote {
+  border-left: 4px solid #e5e7eb;
+  padding-left: 1em;
+  margin: 1em 0;
+  color: #6b7280;
+}
+
+.markdown-content code {
+  background-color: #f3f4f6;
+  padding: 0.2em 0.4em;
+  border-radius: 0.25em;
+  font-size: 0.9em;
+}
+
+.markdown-content pre {
+  background-color: #f3f4f6;
+  padding: 1em;
+  border-radius: 0.5em;
+  overflow-x: auto;
+  margin: 1em 0;
+}
+
+.markdown-content pre code {
+  background: none;
+  padding: 0;
+}
+
+/* Classe pour éléments qui doivent ignorer le thème DYS */
+.system-ui {
+  color: #374151 !important;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  font-size: 14px !important;
+  line-height: 1.5 !important;
+}
+
+.system-ui * {
+  color: inherit !important;
+  font-family: inherit !important;
+}
