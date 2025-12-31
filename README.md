@@ -1,0 +1,55 @@
+# PromptoDYS Editor
+
+PromptoDYS is an open-source text editor specifically designed to be accessible for people with dyslexia. It focuses on readability, text customization, and assistive features.
+
+## ✨ Features
+
+- **OpenDyslexic Font**: Integrated font designed to mitigate some of the common reading errors caused by dyslexia.
+- **Customizable Interface**:
+    - **Font Size**: Adjustable text size for better visibility.
+    - **Line Spacing**: Customizable spacing to prevent line skipping.
+    - **Word Spacing**: Adjustable spacing between words.
+    - **Themes**: High-contrast modes and specific color palettes (e.g., yellow/blue) to reduce visual stress.
+- **Text-to-Speech (TTS)**: Reads the text aloud to assist with comprehension and proofreading.
+- **Ruler Guide**: A reading ruler to help focus on the current line.
+- **PDF Export**: Save documents as accessible PDFs.
+- **Syllable Separation**: (Planned/In-progress) Visual aids to break down words.
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+- [Node.js](https://nodejs.org/) (v14 or higher)
+- [npm](https://www.npmjs.com/)
+
+### Installation
+
+1.  Clone the repository:
+    ```bash
+    git clone https://github.com/lecinquiemejour-code/PromptoDYS_editor.git
+    cd PromptoDYS_editor
+    ```
+
+2.  Install dependencies:
+    ```bash
+    npm install
+    ```
+
+3.  Start the development server:
+    ```bash
+    npm start
+    ```
+
+The application will open in your default browser at `http://localhost:3000`.
+
+## 🛠️ Built With
+
+- **React**: Frontend library for building the user interface.
+- **PostCSS**: For styling and layout.
+- **MathJax**: For rendering mathematical content.
+
+## 📄 License
+
+This project is licensed under the **GNU General Public License v3.0** (GPLv3). See the [LICENSE](LICENSE) file for details.
+
+This means you are free to use, modify, and distribute this software, but any changes you distribute must remain open source under the same license.
