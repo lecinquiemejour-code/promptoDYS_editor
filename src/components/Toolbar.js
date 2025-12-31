@@ -28,6 +28,13 @@ const Toolbar = ({
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [showBackgroundPicker, setShowBackgroundPicker] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  
+  // État pour la modal d'export OneNote
+  const [showOneNoteExportModal, setShowOneNoteExportModal] = useState(false);
+  
+  // États pour la modal d'import HTML
+  const [showImportHtmlModal, setShowImportHtmlModal] = useState(false);
+  const [importedFileName, setImportedFileName] = useState('');
 
   // Vérifier le support File System Access API
   const isFileSystemAccessSupported = () => {
@@ -78,6 +85,335 @@ const Toolbar = ({
     
     const baseName = originalName.replace(/\.[^/.]+$/, "") || 'image';
     return `${baseName}_${timestamp}.${extension}`;
+  };
+
+  // Fonction pour convertir une image blob/URL en base64
+  const convertImageToBase64 = async (imageUrl) => {
+    try {
+      // Si c'est une URL blob:, récupérer le blob stocké ou fetch
+      let blob;
+      if (imageUrl.startsWith('blob:') && getBlobFromUrl) {
+        const storedFile = getBlobFromUrl(imageUrl);
+        if (storedFile) {
+          blob = storedFile;
+        } else {
+          const response = await fetch(imageUrl);
+          blob = await response.blob();
+        }
+      } else {
+        const response = await fetch(imageUrl);
+        blob = await response.blob();
+      }
+      
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.readAsDataURL(blob);
+      });
+    } catch (error) {
+      console.error('Erreur conversion image base64:', error);
+      return imageUrl; // Retourner l'URL originale en cas d'erreur
+    }
+  };
+
+  // Fonction pour extraire le texte brut avec retours à la ligne préservés
+  const extractPlainTextWithLineBreaks = (html) => {
+    console.log('📝 [OneNote Export] Extraction texte brut avec retours à la ligne...');
+    
+    // Créer un parser temporaire
+    const tempParser = new DOMParser();
+    const tempDoc = tempParser.parseFromString(html, 'text/html');
+    
+    // Fonction récursive pour extraire le texte avec les retours à la ligne
+    const extractTextContent = (element) => {
+      let text = '';
+      for (const node of element.childNodes) {
+        if (node.nodeType === Node.TEXT_NODE) {
+          // Préserver les retours à la ligne dans le texte
+          text += node.textContent;
+        } else if (node.nodeType === Node.ELEMENT_NODE) {
+          const tagName = node.tagName.toLowerCase();
+          
+          // Ajouter des retours à la ligne avant/après certaines balises
+          if (['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].includes(tagName)) {
+            text += '\n' + extractTextContent(node) + '\n';
+          } else if (['p', 'div'].includes(tagName)) {
+            text += extractTextContent(node) + '\n';
+          } else if (tagName === 'br') {
+            text += '\n';
+          } else if (tagName === 'li') {
+            text += '• ' + extractTextContent(node) + '\n';
+          } else {
+            text += extractTextContent(node);
+          }
+        }
+      }
+      return text;
+    };
+    
+    const plainText = extractTextContent(tempDoc.body)
+      .replace(/\n\n+/g, '\n\n') // Réduire les retours multiples
+      .trim();
+    
+    console.log('📝 [OneNote Export] Texte brut extrait:', plainText.substring(0, 100) + '...');
+    return plainText;
+  };
+
+  // Fonction pour formater le HTML spécifiquement pour OneNote
+  const formatHtmlForOneNote = (html) => {
+    console.log('🔧 [OneNote Export] Formatage HTML pour OneNote...');
+    
+    return html
+      // NOUVEAU : Convertir les retours à la ligne bruts en <br> dans le texte
+      .replace(/([^>])\n([^<])/g, '$1<br>\n$2')
+      
+      // Normaliser les div en paragraphes pour OneNote
+      .replace(/<div([^>]*)>/gi, '<p$1>')
+      .replace(/<\/div>/gi, '</p>')
+      
+      // Convertir les BR isolés en fins de paragraphes
+      .replace(/<br\s*\/?>\ s*<br\s*\/?>/gi, '</p><p>')
+      .replace(/<br\s*\/?>/gi, '<br>')
+      
+      // Nettoyer les paragraphes vides
+      .replace(/<p[^>]*>\s*<\/p>/gi, '<p>&nbsp;</p>')
+      
+      // Ajouter des retours à la ligne après les balises fermantes pour la lisibilité
+      .replace(/<\/(h[1-6]|p|ul|ol|li)>/gi, '</$1>\n')
+      
+      // Nettoyer les espaces et retours à la ligne multiples
+      .replace(/\n\s*\n/g, '\n')
+      .trim();
+  };
+
+  // Fonction pour parser et importer un fichier HTML/MHTML
+  const handleImportHTML = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    console.log('📥 [HTML Import] Début import fichier:', file.name, '| Type:', file.type, '| Taille:', file.size);
+    
+    try {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          const fileContent = e.target.result;
+          console.log('📄 [HTML Import] Contenu lu, longueur:', fileContent.length);
+          
+          let htmlContent = '';
+          
+          // Détecter le format du fichier
+          if (file.name.toLowerCase().endsWith('.mht') || file.name.toLowerCase().endsWith('.mhtml') || 
+              fileContent.includes('Content-Type: multipart/related')) {
+            // Format MHTML (OneNote) - extraire la partie HTML principale
+            console.log('🔍 [HTML Import] Format MHTML détecté');
+            htmlContent = parseMHTMLContent(fileContent);
+          } else {
+            // Format HTML standard
+            console.log('🔍 [HTML Import] Format HTML standard détecté');
+            htmlContent = parseHTMLContent(fileContent);
+          }
+          
+          if (!htmlContent || htmlContent.trim() === '') {
+            throw new Error('Aucun contenu HTML valide trouvé dans le fichier');
+          }
+          
+          console.log('✅ [HTML Import] HTML extrait, longueur:', htmlContent.length);
+          console.log('📝 [HTML Import] Aperçu HTML:', htmlContent.substring(0, 300) + '...');
+          
+          // Nettoyer et injecter le contenu dans l'éditeur
+          const cleanedHTML = cleanImportedHTML(htmlContent);
+          
+          if (editorRef.current) {
+            editorRef.current.innerHTML = cleanedHTML;
+            // Déclencher l'événement de changement pour mettre à jour l'état
+            const inputEvent = new Event('input', { bubbles: true });
+            editorRef.current.dispatchEvent(inputEvent);
+          }
+          
+          // Basculer en mode WYSIWYG après l'import
+          onViewModeChange('wysiwyg');
+          
+          // Afficher la modal de confirmation
+          setImportedFileName(file.name);
+          setShowImportHtmlModal(true);
+          
+          console.log('✅ [HTML Import] Import terminé avec succès');
+          
+        } catch (error) {
+          console.error('❌ [HTML Import] Erreur traitement fichier:', error);
+          alert(`❌ Erreur lors de l'import du fichier:\n${error.message}`);
+        }
+      };
+      
+      reader.onerror = () => {
+        console.error('❌ [HTML Import] Erreur lecture fichier');
+        alert('❌ Erreur lors de la lecture du fichier');
+      };
+      
+      reader.readAsText(file, 'utf-8');
+      
+    } catch (error) {
+      console.error('❌ [HTML Import] Erreur générale:', error);
+      alert(`❌ Erreur lors de l'import:\n${error.message}`);
+    }
+    
+    // Reset l'input pour permettre de recharger le même fichier
+    event.target.value = '';
+  };
+
+  // Parser pour contenu MHTML (OneNote)
+  const parseMHTMLContent = (mhtmlContent) => {
+    console.log('🔍 [MHTML Parser] Analyse du contenu MHTML...');
+    
+    // Les fichiers MHTML contiennent plusieurs parties séparées par des boundaries
+    // La partie HTML principale est généralement la première partie avec Content-Type: text/html
+    
+    const lines = mhtmlContent.split('\n');
+    let inHTMLPart = false;
+    let htmlLines = [];
+    let foundContentType = false;
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      
+      // Détecter le début d'une partie HTML
+      if (line.toLowerCase().includes('content-type: text/html')) {
+        console.log('📍 [MHTML Parser] Partie HTML trouvée à la ligne', i);
+        inHTMLPart = true;
+        foundContentType = true;
+        continue;
+      }
+      
+      // Détecter les boundaries (fin de partie)
+      if (line.startsWith('------') || (line.startsWith('--') && line.length > 10)) {
+        if (inHTMLPart) {
+          console.log('📍 [MHTML Parser] Fin de partie HTML à la ligne', i);
+          break; // On a trouvé la partie HTML, on s'arrête
+        }
+        inHTMLPart = false;
+        continue;
+      }
+      
+      // Si on est dans la partie HTML et qu'on a passé l'en-tête
+      if (inHTMLPart && foundContentType) {
+        // Ignorer les en-têtes jusqu'à la ligne vide
+        if (line.trim() === '' && htmlLines.length === 0) {
+          continue; // Première ligne vide = fin des en-têtes
+        }
+        if (htmlLines.length > 0 || line.trim() !== '') {
+          htmlLines.push(line);
+        }
+      }
+    }
+    
+    const extractedHTML = htmlLines.join('\n').trim();
+    console.log('📄 [MHTML Parser] HTML extrait, longueur:', extractedHTML.length);
+    
+    return extractedHTML;
+  };
+
+  // Parser pour contenu HTML standard
+  const parseHTMLContent = (htmlContent) => {
+    console.log('🔍 [HTML Parser] Analyse du contenu HTML standard...');
+    
+    // Pour HTML standard, extraire le contenu du body ou utiliser tel quel
+    const bodyMatch = htmlContent.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+    
+    if (bodyMatch) {
+      console.log('📍 [HTML Parser] Contenu <body> trouvé');
+      return bodyMatch[1].trim();
+    } else {
+      console.log('📍 [HTML Parser] Pas de <body>, utilisation du contenu complet');
+      return htmlContent.trim();
+    }
+  };
+
+  // Nettoyer le HTML importé pour l'éditeur
+  const cleanImportedHTML = (html) => {
+    console.log('🧹 [HTML Import] Nettoyage du HTML importé...');
+    
+    return html
+      // Supprimer les scripts et styles pour la sécurité
+      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+      
+      // Supprimer les attributs indésirables mais garder les essentiels
+      .replace(/\s*(?:class|id|style)="[^"]*"/gi, '')
+      .replace(/\s*on\w+="[^"]*"/gi, '') // Supprimer les event handlers
+      
+      // Nettoyer les espaces multiples
+      .replace(/\s+/g, ' ')
+      .replace(/>\s+</g, '><')
+      
+      // Assurer une structure propre
+      .trim();
+  };
+
+  // Fonction pour exporter vers OneNote
+  const handleExportToOneNote = async () => {
+    try {
+      console.log('🔄 [OneNote Export] Début export vers OneNote...');
+      
+      // Récupérer le HTML actuel
+      const htmlContent = editorRef.current?.innerHTML || content;
+      
+      // Parser le HTML
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(htmlContent, 'text/html');
+      
+      // Convertir toutes les images en base64
+      const images = doc.querySelectorAll('img[src^="blob:"]');
+      console.log('🔍 [OneNote Export] Images blob trouvées:', images.length);
+      
+      for (const img of images) {
+        const base64Data = await convertImageToBase64(img.src);
+        img.src = base64Data;
+        console.log('✅ [OneNote Export] Image convertie en base64');
+      }
+      
+      // Récupérer le HTML traité
+      let cleanHtml = doc.body.innerHTML;
+      
+      // Supprimer les attributs spécifiques à l'éditeur
+      cleanHtml = cleanHtml
+        .replace(/\s*data-image-id="[^"]*"/gi, '') // Supprimer data-image-id
+        .replace(/\s*class="[^"]*"/gi, '') // Supprimer les classes CSS
+        .replace(/\s*contenteditable="[^"]*"/gi, '') // Supprimer contenteditable
+        .replace(/\s*style="[^"]*resizable[^"]*"/gi, '') // Supprimer styles redimensionnement
+        .replace(/\s*draggable="[^"]*"/gi, '') // Supprimer draggable
+        .replace(/\s*data-resizable="[^"]*"/gi, ''); // Supprimer data-resizable
+      
+      // NOUVEAU : Formatage spécial OneNote pour préserver les retours à la ligne
+      cleanHtml = formatHtmlForOneNote(cleanHtml);
+      
+      console.log('🧹 [OneNote Export] HTML nettoyé et formaté pour OneNote');
+      console.log('📋 [OneNote Export] HTML final:', cleanHtml.substring(0, 200) + '...');
+      
+      // NOUVEAU : Extraire aussi le texte brut avec retours à la ligne (Option 3A)
+      const plainText = extractPlainTextWithLineBreaks(cleanHtml);
+      console.log('📝 [OneNote Export] Texte brut final:', plainText.substring(0, 200) + '...');
+      
+      // Créer l'élément ClipboardItem avec DOUBLE FORMAT (HTML + texte brut)
+      const htmlBlob = new Blob([cleanHtml], { type: 'text/html' });
+      const textBlob = new Blob([plainText], { type: 'text/plain' });
+      const clipboardItem = new ClipboardItem({
+        'text/html': htmlBlob,
+        'text/plain': textBlob
+      });
+      
+      // Copier dans le presse-papier
+      await navigator.clipboard.write([clipboardItem]);
+      
+      console.log('✅ [OneNote Export] Contenu copié dans le presse-papier');
+      
+      // Afficher la modal de confirmation
+      setShowOneNoteExportModal(true);
+      
+    } catch (error) {
+      console.error('❌ [OneNote Export] Erreur:', error);
+      alert(`❌ Erreur lors de l'export OneNote:\n${error.message}`);
+    }
   };
 
   // Fonction mutualisée pour traiter les images collées et les rendre uniques
@@ -569,7 +905,8 @@ const Toolbar = ({
     { name: 'Vert', value: '#00cc00' },
     { name: 'Rouge', value: '#ff0000' },
     { name: 'Orange', value: '#ff9900' },
-    { name: 'Violet', value: '#ff00ff' }, 
+    { name: 'Violet', value: '#ff00ff' },
+    { name: 'Jaune', value: '#ffff00' },
   ];
 
 
@@ -952,6 +1289,37 @@ const Toolbar = ({
               <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
             </div>
           </div>
+          <div className="relative group">
+            <button
+              onClick={handleExportToOneNote}
+              className="border border-gray-400 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-500 px-2 py-1 text-xs rounded"
+            >
+              📋 OneNote
+            </button>
+            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
+              Export OneNote
+              <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
+            </div>
+          </div>
+          <div className="relative group">
+            <button
+              onClick={() => document.getElementById('html-import-input').click()}
+              className="border border-gray-400 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-500 px-2 py-1 text-xs rounded"
+            >
+              📁 Importer HTML
+            </button>
+            <input
+              id="html-import-input"
+              type="file"
+              accept=".html,.htm,.mht,.mhtml"
+              onChange={handleImportHTML}
+              className="hidden"
+            />
+            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
+              Importer fichier HTML/MHTML (OneNote)
+              <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
+            </div>
+          </div>
         </div>
 
 
@@ -1216,6 +1584,66 @@ const Toolbar = ({
                 className="px-3 py-2 text-xs font-medium text-gray-800 bg-gray-50 border border-gray-300 rounded-lg hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-colors duration-200"
               >
                 ↩️ Annuler
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Modal d'export OneNote */}
+      {showOneNoteExportModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100]">
+          <div className="system-ui bg-white rounded-lg p-6 w-80 shadow-xl border-4 border-blue-400">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 text-center">
+              ✅ Export OneNote réussi
+            </h3>
+            
+            <div className="mb-6 text-center">
+              <div className="text-4xl mb-3">📋</div>
+              <p className="text-sm text-gray-700 mb-2">
+                Le contenu est maintenant dans le presse-papier,
+              </p>
+              <p className="text-sm font-medium text-blue-700">
+                prêt à être collé dans OneNote !
+              </p>
+            </div>
+            
+            <div className="text-center">
+              <button
+                onClick={() => setShowOneNoteExportModal(false)}
+                className="px-6 py-2 text-sm font-medium text-gray-800 bg-blue-50 border border-blue-300 rounded-lg hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200"
+              >
+                👍 OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Modal d'import HTML */}
+      {showImportHtmlModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100]">
+          <div className="system-ui bg-white rounded-lg p-6 w-80 shadow-xl border-4 border-green-400">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 text-center">
+              ✅ Import HTML réussi
+            </h3>
+            
+            <div className="mb-6 text-center">
+              <div className="text-4xl mb-3">📁</div>
+              <p className="text-sm text-gray-700 mb-2">
+                Le contenu de <strong>{importedFileName}</strong>
+              </p>
+              <p className="text-sm font-medium text-green-700">
+                a été importé avec succès dans l'éditeur !
+              </p>
+            </div>
+            
+            <div className="text-center">
+              <button
+                onClick={() => setShowImportHtmlModal(false)}
+                className="px-6 py-2 text-sm font-medium text-gray-800 bg-green-50 border border-green-300 rounded-lg hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-green-500 transition-colors duration-200"
+              >
+                👍 OK
               </button>
             </div>
           </div>

@@ -4,12 +4,12 @@ const path = require('path');
 function inlineAssets() {
   const buildDir = path.join(__dirname, 'build');
   const htmlFile = path.join(buildDir, 'index.html');
-  
+
   console.log('🚀 Création du build standalone...');
-  
+
   // Lire le fichier HTML
   let html = fs.readFileSync(htmlFile, 'utf8');
-  
+
   // Trouver et inline les fichiers CSS
   const cssMatches = html.match(/<link href="\.\/static\/css\/(.*?\.css)" rel="stylesheet">/g);
   if (cssMatches) {
@@ -23,7 +23,7 @@ function inlineAssets() {
       }
     });
   }
-  
+
   // Trouver et inline les fichiers JS - CORRECTION pour éviter l'affichage en texte brut
   const jsMatches = html.match(/<script defer="defer" src="\.\/static\/js\/(.*?\.js)"><\/script>/g);
   if (jsMatches) {
@@ -32,18 +32,18 @@ function inlineAssets() {
       const jsPath = path.join(buildDir, 'static', 'js', jsFileName);
       if (fs.existsSync(jsPath)) {
         let jsContent = fs.readFileSync(jsPath, 'utf8');
-        
+
         // CORRECTION: Échapper les caractères problématiques qui peuvent casser l'HTML
         // Remplacer les </script> dans le contenu JS pour éviter la fermeture prématurée
         jsContent = jsContent.replace(/<\/script>/gi, '<\\/script>');
-        
+
         // Remplacer la balise par le contenu inline SANS defer (pas nécessaire en inline)
         html = html.replace(match, `<script>${jsContent}</script>`);
         console.log(`✅ JS inliné: ${jsFileName}`);
       }
     });
   }
-  
+
   // Inline le favicon
   const faviconPath = path.join(buildDir, 'favicon.png');
   if (fs.existsSync(faviconPath)) {
@@ -55,7 +55,7 @@ function inlineAssets() {
     );
     console.log('✅ Favicon inliné en base64');
   }
-  
+
   // Traiter les éventuelles images dans le contenu
   const imgMatches = html.match(/<img[^>]*src="\.\/static\/media\/(.*?)"[^>]*>/g);
   if (imgMatches) {
@@ -74,17 +74,17 @@ function inlineAssets() {
       }
     });
   }
-  
+
   // Supprimer la référence à eel.js (optionnel pour version standalone)
   html = html.replace(/<script src="\/eel\.js"><\/script>/, '<!-- eel.js removed for standalone version -->');
-  
+
   // Écrire le fichier standalone
   const standaloneFile = path.join(buildDir, 'standalone.html');
   fs.writeFileSync(standaloneFile, html, 'utf8');
-  
+
   const stats = fs.statSync(standaloneFile);
   const fileSizeMB = (stats.size / (1024 * 1024)).toFixed(2);
-  
+
   console.log(`🎉 Build standalone créé: ${standaloneFile}`);
   console.log(`📊 Taille du fichier: ${fileSizeMB} MB`);
   console.log('📝 Le fichier est maintenant complètement autonome et portable !');

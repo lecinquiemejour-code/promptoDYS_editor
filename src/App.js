@@ -3,7 +3,7 @@ import { useEditor } from './hooks/useEditor';
 import { useEelBridge } from './hooks/useEelBridge';
 import { useThemeSettings } from './hooks/useThemeSettings';
 import { useMathJax } from './hooks/useMathJax';
-import { htmlToMarkdown, markdownToHtml } from './utils/markdownConverter';
+// Removed unused imports
 // Removed PromptoDYS imports - using simple project management
 import Toolbar from './components/Toolbar';
 import Editor from './components/Editor';
@@ -11,12 +11,11 @@ import StatusBar from './components/StatusBar';
 import ThemeSettings from './components/ThemeSettings';
 
 const App = () => {
-  
+
   const {
     content,
     setContent,
     viewMode,
-    setViewMode,
     changeViewMode,
     isWysiwyg,
     currentFormat,
@@ -33,17 +32,17 @@ const App = () => {
 
   // Gestionnaire de blobs pour les images
   const blobStorageRef = useRef(new Map());
-  
+
   const storeBlobForUrl = useCallback((blobUrl, file) => {
     console.log('💾 [App] Stockage blob pour URL:', blobUrl, 'File:', file?.name, 'Size:', file?.size);
     blobStorageRef.current.set(blobUrl, file);
     console.log('📊 [App] Total blobs stockés:', blobStorageRef.current.size);
   }, []);
-  
+
   const getBlobFromUrl = useCallback((blobUrl) => {
     return blobStorageRef.current.get(blobUrl);
   }, []);
-  
+
   const getAllBlobs = useCallback(() => {
     return blobStorageRef.current;
   }, []);
@@ -98,7 +97,7 @@ const App = () => {
   } = useThemeSettings();
 
   // ⚡ Intégration MathJax en local
-  const { renderMath } = useMathJax();
+  useMathJax();
 
   // État de restauration supprimé - éditeur volatil uniquement
 
@@ -106,72 +105,72 @@ const App = () => {
   useEelBridge(content, setContent, viewMode);
 
   return (
-      <div className="h-screen bg-white w-full relative">
-        {/* Removed PromptoDYS error messages */}
-        
-        
-        {/* Zone d'édition principale avec scroll indépendant */}
-        <div className="editor-container">
-          <div className="editor-scroll">
-            <Editor 
-              viewMode={viewMode}
-              content={content}
-              editorRef={editorRef}
-              onInput={handleInput}
-              onSelectionChange={updateCurrentFormat}
-              currentFormat={currentFormat}
-              selectedImage={selectedImage}
-              onImageClick={handleImageClick}
-              onEditorClick={handleEditorClick}
-              onDeleteSelectedImage={null}
-              ignoreSelectionChangeRef={ignoreSelectionChangeRef}
-              storeBlobForUrl={storeBlobForUrl}
-            />
-          </div>
-        </div>
+    <div className="h-screen bg-white w-full relative">
+      {/* Removed PromptoDYS error messages */}
 
-        {/* Toolbar fixée en bas */}
-        <div className="fixed bottom-8 left-0 right-0 bg-gray-50 border-t border-gray-200 px-5 py-2 z-10">
-          <Toolbar 
-            content={content}
-            setContent={setContent}
+
+      {/* Zone d'édition principale avec scroll indépendant */}
+      <div className="editor-container">
+        <div className="editor-scroll">
+          <Editor
             viewMode={viewMode}
-            onViewModeChange={changeViewMode}
-            currentFormat={currentFormat}
-            onFormatChange={setCurrentFormat}
+            content={content}
             editorRef={editorRef}
-            onThemeSettingsToggle={toggleSettings}
+            onInput={handleInput}
+            onSelectionChange={updateCurrentFormat}
+            currentFormat={currentFormat}
+            selectedImage={selectedImage}
+            onImageClick={handleImageClick}
+            onEditorClick={handleEditorClick}
+            onDeleteSelectedImage={null}
             ignoreSelectionChangeRef={ignoreSelectionChangeRef}
             storeBlobForUrl={storeBlobForUrl}
-            getBlobFromUrl={getBlobFromUrl}
-            getAllBlobs={getAllBlobs}
           />
         </div>
+      </div>
 
-        {/* StatusBar tout en bas */}
-        <div className="fixed bottom-0 left-0 right-0 bg-gray-100 border-t border-gray-300 px-5 py-1 z-10">
-          <StatusBar 
-            currentFormat={currentFormat}
-            content={content}
-            dysSettings={settings}
-          />
-        </div>
-
-        {/* Modal ThemeSettings */}
-        <ThemeSettings 
-          settings={settings}
-          isSettingsOpen={isSettingsOpen}
-          toggleSettings={toggleSettings}
-          backgroundOptions={backgroundOptions}
-          textOptions={textOptions}
-          fontOptions={fontOptions}
-          presetThemes={presetThemes}
-          updateSetting={updateSetting}
-          resetToDefaults={resetToDefaults}
-          applyPresetTheme={applyPresetTheme}
+      {/* Toolbar fixée en bas */}
+      <div className="fixed bottom-8 left-0 right-0 bg-gray-50 border-t border-gray-200 px-5 py-2 z-10">
+        <Toolbar
+          content={content}
+          setContent={setContent}
+          viewMode={viewMode}
+          onViewModeChange={changeViewMode}
+          currentFormat={currentFormat}
+          onFormatChange={setCurrentFormat}
+          editorRef={editorRef}
+          onThemeSettingsToggle={toggleSettings}
+          ignoreSelectionChangeRef={ignoreSelectionChangeRef}
+          storeBlobForUrl={storeBlobForUrl}
+          getBlobFromUrl={getBlobFromUrl}
+          getAllBlobs={getAllBlobs}
         />
       </div>
-    );
+
+      {/* StatusBar tout en bas */}
+      <div className="fixed bottom-0 left-0 right-0 bg-gray-100 border-t border-gray-300 px-5 py-1 z-10">
+        <StatusBar
+          currentFormat={currentFormat}
+          content={content}
+          dysSettings={settings}
+        />
+      </div>
+
+      {/* Modal ThemeSettings */}
+      <ThemeSettings
+        settings={settings}
+        isSettingsOpen={isSettingsOpen}
+        toggleSettings={toggleSettings}
+        backgroundOptions={backgroundOptions}
+        textOptions={textOptions}
+        fontOptions={fontOptions}
+        presetThemes={presetThemes}
+        updateSetting={updateSetting}
+        resetToDefaults={resetToDefaults}
+        applyPresetTheme={applyPresetTheme}
+      />
+    </div>
+  );
 };
 
 export default App;
