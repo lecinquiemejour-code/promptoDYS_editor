@@ -11,6 +11,7 @@ import StatusBar from './components/StatusBar';
 import ThemeSettings from './components/ThemeSettings';
 
 const App = () => {
+  // 🟢 DEMO GIT: Ce commentaire est un "changement" pour tester le commit
 
   const {
     content,
