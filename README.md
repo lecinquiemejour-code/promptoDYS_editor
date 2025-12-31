@@ -1,6 +1,8 @@
 # PromptoDYS Editor
 
-PromptoDYS is an open-source text editor specifically designed to be accessible for people with dyslexia. It focuses on readability, text customization, and assistive features.
+**PromptoDYS Editor** is the accessible front-end editor component of the larger **PromptoDYS** ecosystem.
+
+While this editor focuses on providing a dyslexia-friendly writing environment, it is designed to work in tandem with a **Python backend**. This backend leverages **Generative AI** to post-process notes, organize thoughts, and enhance the writing of users with dyslexia.
 
 ## ✨ Features
 
