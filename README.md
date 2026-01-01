@@ -12,10 +12,6 @@ While this editor focuses on providing a dyslexia-friendly writing environment, 
     - **Line Spacing**: Customizable spacing to prevent line skipping.
     - **Word Spacing**: Adjustable spacing between words.
     - **Themes**: High-contrast modes and specific color palettes (e.g., yellow/blue) to reduce visual stress.
-- **Text-to-Speech (TTS)**: Reads the text aloud to assist with comprehension and proofreading.
-- **Ruler Guide**: A reading ruler to help focus on the current line.
-- **PDF Export**: Save documents as accessible PDFs.
-- **Syllable Separation**: (Planned/In-progress) Visual aids to break down words.
 
 ## 🚀 Getting Started
 
