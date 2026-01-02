@@ -4,6 +4,12 @@
 
 While this editor focuses on providing a dyslexia-friendly writing environment, it is designed to work in tandem with a **Python backend**. This backend leverages **Generative AI** to post-process notes, organize thoughts, and enhance the writing of users with dyslexia.
 
+> [!TIP]
+> **Join our Beta!** To participate in the beta test, visit: https://biwnia5f.paperform.co/
+
+> [!IMPORTANT]
+> **The PromptoDYS YouTube playlist is online!** Watch our [demonstrations and tutorials](https://lnkd.in/dGEitcFJ) to see the project in action.
+
 ## ✨ Features
 
 - **OpenDyslexic Font**: Integrated font designed to mitigate some of the common reading errors caused by dyslexia.
