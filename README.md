@@ -8,7 +8,7 @@ While this editor focuses on providing a dyslexia-friendly writing environment, 
 > **Join our Beta!** To participate in the beta test, visit: https://biwnia5f.paperform.co/
 
 > [!IMPORTANT]
-> **The PromptoDYS YouTube playlist is online!** Watch our [demonstrations and tutorials](https://lnkd.in/dGEitcFJ) to see the project in action.
+> **The PromptoDYS YouTube playlist is online!** Watch our [demonstrations and tutorials](https://www.youtube.com/playlist?list=PLW7qCRPBMNnWVU2ktGeaT1pd5eXKFByN3) to see the project in action.
 
 ## ✨ Features
 
