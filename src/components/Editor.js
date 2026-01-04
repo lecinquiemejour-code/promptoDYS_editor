@@ -2,14 +2,14 @@ import React, { useCallback, useEffect, useRef, forwardRef } from 'react';
 import { convertAllPromptoDysUrlsToBlobs, getCurrentProject } from '../utils/promptoDysManager';
 import { loadImage, saveImage, requestPersistentStorage } from '../utils/imageStore';
 
-const Editor = forwardRef(({ 
-  content, 
-  setContent, 
-  viewMode, 
-  onInput, 
-  currentFormat, 
-  onFormatChange, 
-  mathJaxReady, 
+const Editor = forwardRef(({
+  content,
+  setContent,
+  viewMode,
+  onInput,
+  currentFormat,
+  onFormatChange,
+  mathJaxReady,
   ignoreSelectionChangeRef,
   selectedImage,
   onImageClick,
@@ -19,38 +19,38 @@ const Editor = forwardRef(({
   storeBlobForUrl,
   editorRef
 }, ref) => {
-  
-  
+
+
   // Utilise editorRef passée en props (pas de ref locale)
   const isInitializedRef = useRef(false);
   const previousContentRef = useRef('');
-  
+
   // Fonction pour créer des blobs uniques (mutualisation avec Toolbar)
   const createUniqueBlob = useCallback((file, storeBlobForUrl) => {
     const uniqueId = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const uniqueName = `${uniqueId}_${file.name}`;
     const uniqueFile = new File([file], uniqueName, { type: file.type });
     const blobUrl = URL.createObjectURL(uniqueFile);
-    
+
     console.log('🎯 [createUniqueBlob] Création blob unique:', uniqueName, '->', blobUrl);
     storeBlobForUrl(blobUrl, uniqueFile);
-    
+
     return { blobUrl, uniqueFile };
   }, []);
 
   // Fonction de vérification force de la persistance des images
   const forceVerifyImagePersistence = useCallback(async (container) => {
     console.log('🔍 [forceVerify] Vérification persistance images...');
-    
+
     const imagesWithId = container.querySelectorAll('img[data-image-id]');
     console.log(`🔍 [forceVerify] ${imagesWithId.length} images avec data-image-id trouvées`);
-    
+
     for (const img of imagesWithId) {
       const imageId = img.getAttribute('data-image-id');
       try {
         const blob = await loadImage(imageId);
         if (blob) {
-          console.log(`✅ [forceVerify] Image ${imageId} OK en IndexedDB (${Math.round(blob.size/1024)}KB)`);
+          console.log(`✅ [forceVerify] Image ${imageId} OK en IndexedDB (${Math.round(blob.size / 1024)}KB)`);
         } else {
           console.error(`❌ [forceVerify] Image ${imageId} MANQUANTE en IndexedDB`);
           // Re-sauvegarder depuis l'URL actuelle si possible
@@ -74,7 +74,7 @@ const Editor = forwardRef(({
   // Fonction de réhydratation des images depuis IndexedDB
   const rehydrateImages = useCallback(async (container) => {
     console.log(' [rehydrateImages] Début réhydratation des images...');
-    
+
     if (!container) {
       console.warn(' [rehydrateImages] Pas de conteneur fourni');
       return;
@@ -92,13 +92,13 @@ const Editor = forwardRef(({
       try {
         // Charger l'image depuis IndexedDB
         const objectUrl = await loadImage(imageId);
-        
+
         if (objectUrl) {
           // Conserver les attributs existants
           const width = img.getAttribute('width');
           const height = img.getAttribute('height');
           const alt = img.getAttribute('alt') || '';
-          
+
           console.log(' [rehydrateImages] Image chargée:', {
             imageId,
             oldSrc: img.src,
@@ -107,10 +107,10 @@ const Editor = forwardRef(({
             height,
             alt
           });
-          
+
           // Mettre à jour la source
           img.src = objectUrl;
-          
+
           console.log(' [rehydrateImages] Image réhydratée avec succès:', imageId);
         } else {
           console.warn(' [rehydrateImages] Image non trouvée en IndexedDB:', imageId);
@@ -127,87 +127,87 @@ const Editor = forwardRef(({
   // Fonction mutualisée pour traiter les images collées et les rendre uniques
   const processImageBlobs = useCallback(async (container, storeBlobForUrl) => {
     console.log(' [processImageBlobs] Traitement des images...');
-    
+
     // Traiter les images blob: temporaires
     const blobImages = container.querySelectorAll('img[src^="blob:"]');
     console.log('🔍 [processImageBlobs] Images blob trouvées:', blobImages.length);
-    
+
     for (const img of blobImages) {
       const originalUrl = img.src;
-      
+
       try {
         console.log('📥 [processImageBlobs] Traitement blob:', originalUrl);
-        
+
         // Récupérer le blob original
         const response = await fetch(originalUrl);
         const blob = await response.blob();
-        
+
         // Créer un nouveau File avec un nom unique
         const file = new File([blob], 'pasted-image.png', { type: blob.type });
         const { blobUrl } = createUniqueBlob(file, storeBlobForUrl);
-        
+
         // Remplacer l'URL dans l'image
         img.src = blobUrl;
         console.log('✅ [processImageBlobs] Image blob mise à jour:', originalUrl, '->', blobUrl);
-        
+
       } catch (error) {
         console.error('❌ [processImageBlobs] Erreur blob pour:', originalUrl, error);
       }
     }
-    
+
     // Traiter les images base64 collées (copie d'écran Windows)
     const base64Images = container.querySelectorAll('img[src^="data:image/"]');
     console.log('🔍 [processImageBlobs] Images base64 trouvées:', base64Images.length);
-    
+
     for (const img of base64Images) {
       const dataUrl = img.src;
-      
+
       try {
         console.log('📥 [processImageBlobs] Traitement base64 (longueur:', dataUrl.length, 'chars)');
-        
+
         // Convertir data URL en blob
         const response = await fetch(dataUrl);
         const blob = await response.blob();
-        
+
         // Générer nom de fichier unique
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
         const filename = `pasted-screenshot-${timestamp}.png`;
-        
+
         // Générer ID unique et stocker dans IndexedDB
         const imageId = crypto.randomUUID();
         await saveImage(imageId, blob);
-        
+
         // Créer blob URL temporaire pour affichage
         const blobUrl = URL.createObjectURL(blob);
-        
+
         // Stocker le mapping URL->File pour compatibilité
         const file = new File([blob], filename, { type: blob.type });
         if (storeBlobForUrl) {
           storeBlobForUrl(blobUrl, file);
         }
-        
+
         // Remplacer l'image base64 par blob + data-image-id
         img.src = blobUrl;
         img.setAttribute('data-image-id', imageId);
         img.setAttribute('alt', filename);
-        
+
         console.log(' [processImageBlobs] Image base64 convertie:', dataUrl.substring(0, 50) + '...', '->', blobUrl, 'ID:', imageId);
-        
+
       } catch (error) {
         console.error(' [processImageBlobs] Erreur base64 pour:', dataUrl.substring(0, 50), error);
       }
     }
-    
+
     // OPTION B: Force vérification + double check après processus
     console.log(' [processImageBlobs] OPTION B - Force vérification persistance...');
     await forceVerifyImagePersistence(container);
-    
+
     // Double réhydratation après 500ms
     setTimeout(async () => {
       console.log(' [processImageBlobs] OPTION B - Double réhydratation...');
       await rehydrateImages(container);
     }, 500);
-    
+
     console.log(' [processImageBlobs] Traitement terminé');
   }, [forceVerifyImagePersistence, rehydrateImages, createUniqueBlob]);
 
@@ -215,7 +215,7 @@ const Editor = forwardRef(({
   // Fonction de migration des anciennes images blob: vers IndexedDB
   const migrateOldBlobImages = useCallback(async (container) => {
     console.log(' [migrateOldBlobImages] Début migration des anciennes images...');
-    
+
     if (!container) {
       console.warn('⚠️ [migrateOldBlobImages] Pas de conteneur fourni');
       return;
@@ -242,29 +242,29 @@ const Editor = forwardRef(({
           console.warn('⚠️ [migrateOldBlobImages] Impossible de récupérer le blob:', response.status);
           continue;
         }
-        
+
         const blob = await response.blob();
         console.log('📦 [migrateOldBlobImages] Blob récupéré:', {
-          size: `${Math.round(blob.size/1024)}KB`,
+          size: `${Math.round(blob.size / 1024)}KB`,
           type: blob.type
         });
 
         // Créer un File pour saveImage()
         const fileName = img.alt || `migrated_image_${Date.now()}.png`;
         const file = new File([blob], fileName, { type: blob.type });
-        
+
         // Générer UUID et sauvegarder en IndexedDB
         const imageId = crypto.randomUUID();
         await saveImage(imageId, file);
         console.log('💾 [migrateOldBlobImages] Image migrée vers IndexedDB:', imageId);
-        
+
         // Mettre à jour l'élément img avec data-image-id
         img.setAttribute('data-image-id', imageId);
-        
+
         // Créer nouvelle Object URL
         const newObjectUrl = URL.createObjectURL(blob);
         img.src = newObjectUrl;
-        
+
         // Révoquer l'ancienne URL si possible
         try {
           URL.revokeObjectURL(oldBlobUrl);
@@ -272,13 +272,13 @@ const Editor = forwardRef(({
         } catch (revokeError) {
           console.warn('⚠️ [migrateOldBlobImages] Impossible de révoquer ancienne URL:', revokeError);
         }
-        
+
         console.log('✅ [migrateOldBlobImages] Image migrée avec succès:', {
           oldUrl: oldBlobUrl,
           newImageId: imageId,
           fileName
         });
-        
+
       } catch (error) {
         console.error('❌ [migrateOldBlobImages] Erreur migration:', oldBlobUrl, error);
         // On garde l'ancienne image même en cas d'erreur
@@ -286,7 +286,7 @@ const Editor = forwardRef(({
     }
 
     console.log('✅ [migrateOldBlobImages] Migration terminée');
-    
+
     // Déclencher une sauvegarde du contenu après migration
     if (onInput && container.innerHTML) {
       console.log('💾 [migrateOldBlobImages] Déclenchement sauvegarde après migration...');
@@ -294,7 +294,7 @@ const Editor = forwardRef(({
       container.dispatchEvent(event);
     }
   }, [onInput]);
-  
+
   // Gestionnaire pour l'auto-redimensionnement (toujours déclaré)
   const handleTextareaResize = useCallback((textarea) => {
     if (textarea) {
@@ -306,24 +306,24 @@ const Editor = forwardRef(({
   // Effect pour la réhydratation des images au chargement
   useEffect(() => {
     console.log(' [Editor] Effect réhydratation - Chargement initial');
-    
+
     const initImageSystem = async () => {
       console.log(' [Editor] Demande stockage persistant...');
       // Demander le stockage persistant
       await requestPersistentStorage();
-      
+
       // Réhydrater les images si l'éditeur est prêt
       if (editorRef.current) {
         console.log(' [Editor] Déclenchement réhydratation...');
         await rehydrateImages(editorRef.current);
-        
+
         console.log(' [Editor] Déclenchement migration anciennes images...');
         await migrateOldBlobImages(editorRef.current);
       } else {
         console.warn(' [Editor] editorRef pas encore prêt pour réhydratation');
       }
     };
-    
+
     initImageSystem();
   }, [rehydrateImages, migrateOldBlobImages]);
 
@@ -332,11 +332,11 @@ const Editor = forwardRef(({
     if (content && content !== previousContentRef.current && editorRef.current) {
       console.log(' [Editor] Contenu changé - Vérification réhydratation...');
       previousContentRef.current = content;
-      
+
       // Délai pour laisser le DOM se mettre à jour (plus long en production)
       const rehydrationDelay = process.env.NODE_ENV === 'production' ? 1000 : 100;
       console.log(` [Editor] Délai réhydratation: ${rehydrationDelay}ms (env: ${process.env.NODE_ENV})`);
-      
+
       setTimeout(async () => {
         await rehydrateImages(editorRef.current);
         await migrateOldBlobImages(editorRef.current);
@@ -348,7 +348,7 @@ const Editor = forwardRef(({
   const formatHtmlForSource = useCallback((html) => {
     let indentLevel = 0;
     const indentSize = 2; // 2 espaces par niveau
-    
+
     return html
       .replace(/<br\s*\/?>/gi, '<br>\n')
       .replace(/<\/?(h[1-6]|p|div|ul|ol|li|strong|em|span)[^>]*>/gi, (match) => {
@@ -387,9 +387,9 @@ const Editor = forwardRef(({
   // Gestionnaire unifié WYSIWYG - connecté directement à onInput
   const handleWysiwygChange = useCallback((e) => {
     console.log('📝 handleWysiwygChange déclenché');
-    
+
     if (!editorRef.current) return;
-    
+
     // Nettoyer les spans vides et les &nbsp; en trop
     const cleanContent = (html) => {
       return html
@@ -399,16 +399,16 @@ const Editor = forwardRef(({
         .replace(/<b\b[^>]*>(.*?)<\/b>/g, '<strong>$1</strong>') // Convertir b en strong
         .replace(/<i\b[^>]*>(.*?)<\/i>/g, '<em>$1</em>'); // Convertir i en em
     };
-    
+
     const newContent = cleanContent(editorRef.current.innerHTML);
     console.log('🔍 Contenu actuel vs nouveau:', content.length, 'vs', newContent.length);
-    
+
     // Appel direct vers onInput du hook useEditor
     if (newContent !== content) {
       console.log('✅ WYSIWYG Changement - Appel onInput direct');
       onInput({ target: { innerHTML: newContent } });
     }
-    
+
     // Déclencher mise à jour du formatage après un délai
     if (onSelectionChange && !ignoreSelectionChangeRef?.current) {
       console.log('🔄 EDITOR handleWysiwygChange - Va appeler onSelectionChange dans 50ms');
@@ -442,30 +442,30 @@ const Editor = forwardRef(({
         // Ne pas modifier le contenu si l'utilisateur interagit activement
         const hasFocus = document.activeElement === editorRef.current;
         const hasSelection = window.getSelection().rangeCount > 0;
-        
+
         // Éviter les mises à jour pendant l'interaction utilisateur
         if (hasFocus && hasSelection) {
           return; // Ne pas perturber l'utilisateur
         }
-        
+
         // Convertir les URLs relatives PromptoDYS en Blob URLs pour affichage
         const currentProject = getCurrentProject();
         let displayContent = content;
-        
+
         if (currentProject.directory) {
           displayContent = await convertAllPromptoDysUrlsToBlobs(content, currentProject.directory);
         }
-        
+
         // Mise à jour avec le contenu converti
         editorRef.current.innerHTML = displayContent;
-        
+
         // Re-rendre MathJax après mise à jour du contenu
         if (window.MathJax && window.MathJax.typesetPromise) {
           window.MathJax.typesetPromise([editorRef.current]).catch((err) => {
             console.warn('Erreur MathJax:', err);
           });
         }
-        
+
         // SOLUTION F5: Forcer le retraitement des poignées après initialisation
         setTimeout(() => {
           console.log('🔄 [F5 Fix] Retraitement forcé des poignées d\'images après initialisation');
@@ -476,7 +476,7 @@ const Editor = forwardRef(({
               img.removeAttribute('data-resizable');
               // Retirer le wrapper s'il existe déjà
               const existingWrapper = img.closest('.resizable-image');
-              if (existingWrapper) {
+              if (existingWrapper && existingWrapper.parentNode) {
                 const parent = existingWrapper.parentNode;
                 parent.insertBefore(img, existingWrapper);
                 existingWrapper.remove();
@@ -489,7 +489,7 @@ const Editor = forwardRef(({
         }, 300); // Délai pour s'assurer que tout est bien initialisé
       }
     };
-    
+
     initializeContent();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewMode, content]);
@@ -504,7 +504,7 @@ const Editor = forwardRef(({
           const tempDiv = document.createElement('div');
           const clonedImg = selectedImage.cloneNode(true);
           tempDiv.appendChild(clonedImg);
-          
+
           // Copier au format HTML pour préserver la structure
           e.clipboardData.setData('text/html', tempDiv.innerHTML);
           // Copier aussi le src comme texte de fallback
@@ -515,7 +515,7 @@ const Editor = forwardRef(({
           console.warn('Erreur copie image:', error);
         }
       }
-      
+
       // Priorité 2: Sélection de texte classique
       const selection = window.getSelection();
       if (selection.rangeCount > 0) {
@@ -523,7 +523,7 @@ const Editor = forwardRef(({
         const selectedContent = range.cloneContents();
         const tempDiv = document.createElement('div');
         tempDiv.appendChild(selectedContent);
-        
+
         // Convertir HTML en texte avec retours à la ligne préservés
         const htmlContent = tempDiv.innerHTML;
         const textContent = htmlContent
@@ -540,7 +540,7 @@ const Editor = forwardRef(({
           .replace(/&quot;/g, '"')
           .replace(/&#39;/g, "'")
           .replace(/\n+$/, ''); // Supprimer les retours à la ligne en fin
-        
+
         // Mettre le texte propre dans le presse-papier
         e.clipboardData.setData('text/plain', textContent);
         e.preventDefault();
@@ -553,19 +553,19 @@ const Editor = forwardRef(({
   // Gestionnaire pour forcer le refresh après coller
   const handlePaste = useCallback((e) => {
     console.log('📋 [DEBUG] handlePaste DÉCLENCHÉ!', { viewMode, hasEditor: !!editorRef.current });
-    
+
     if (viewMode === 'wysiwyg' && editorRef.current) {
       // Attendre que le contenu soit collé
       setTimeout(async () => {
         console.log('🔄 Refresh forcé après coller');
-        
+
         // Traiter les images collées pour leur donner des URLs blob uniques
         if (storeBlobForUrl) {
           await processImageBlobs(editorRef.current, storeBlobForUrl);
         }
-        
+
         console.log('✅ [handlePaste] Images traitées par processImageBlobs (Option B incluse)');
-        
+
         // Ajouter les poignées aux nouvelles images collées
         const newImages = editorRef.current.querySelectorAll('img:not([data-resizable])');
         newImages.forEach(img => {
@@ -573,7 +573,7 @@ const Editor = forwardRef(({
             editorRef.current.addResizeHandlesToImage(img);
           }
         });
-        
+
         // Déclencher sauvegarde
         if (onInput) {
           const event = new Event('input', { bubbles: true });
@@ -598,24 +598,24 @@ const Editor = forwardRef(({
   // Effect pour attacher les gestionnaires d'événements
   useEffect(() => {
     console.log('🔗 [DEBUG] Attachement events, viewMode:', viewMode, 'editorRef:', !!editorRef.current);
-    
+
     if (viewMode === 'wysiwyg' && editorRef.current) {
       // Debug générique pour TOUS les events paste
       const debugPaste = (e) => {
-        console.log('🔥 [DEBUG] PASTE EVENT DÉTECTÉ!', { 
-          target: e.target.tagName, 
+        console.log('🔥 [DEBUG] PASTE EVENT DÉTECTÉ!', {
+          target: e.target.tagName,
           currentTarget: e.currentTarget.tagName,
-          hasClipboardData: !!e.clipboardData 
+          hasClipboardData: !!e.clipboardData
         });
       };
-      
+
       document.addEventListener('selectionchange', handleSelectionChange);
       editorRef.current.addEventListener('copy', handleCopy);
       editorRef.current.addEventListener('paste', handlePaste);
       editorRef.current.addEventListener('paste', debugPaste); // DEBUG GLOBAL
-      
+
       console.log('✅ [DEBUG] Event paste attaché à editorRef.current + debug global');
-      
+
       return () => {
         console.log('🗑️ [DEBUG] Nettoyage events');
         document.removeEventListener('selectionchange', handleSelectionChange);
@@ -626,27 +626,27 @@ const Editor = forwardRef(({
     }
   }, [viewMode, handleSelectionChange, handleCopy]);
 
-// Effect pour appliquer le style de sélection d'image
-useEffect(() => {
-  if (viewMode === 'wysiwyg' && editorRef.current) {
-    // Supprimer la classe de toutes les images
-    const allImages = editorRef.current.querySelectorAll('img');
-    allImages.forEach(img => {
-      const wrapper = img.closest('.resizable-image');
-      if (wrapper) {
-        wrapper.classList.remove('image-selected');
-      }
-    });
+  // Effect pour appliquer le style de sélection d'image
+  useEffect(() => {
+    if (viewMode === 'wysiwyg' && editorRef.current) {
+      // Supprimer la classe de toutes les images
+      const allImages = editorRef.current.querySelectorAll('img');
+      allImages.forEach(img => {
+        const wrapper = img.closest('.resizable-image');
+        if (wrapper) {
+          wrapper.classList.remove('image-selected');
+        }
+      });
 
-    // Ajouter la classe à l'image sélectionnée
-    if (selectedImage) {
-      const wrapper = selectedImage.closest('.resizable-image');
-      if (wrapper) {
-        wrapper.classList.add('image-selected');
+      // Ajouter la classe à l'image sélectionnée
+      if (selectedImage) {
+        const wrapper = selectedImage.closest('.resizable-image');
+        if (wrapper) {
+          wrapper.classList.add('image-selected');
+        }
       }
     }
-  }
-}, [selectedImage, viewMode, content]);
+  }, [selectedImage, viewMode, content]);
 
   // Gestion des poignées de redimensionnement pour les images
   useEffect(() => {
@@ -655,24 +655,24 @@ useEffect(() => {
         // Exposer la fonction pour réutilisation
         editorRef.current.addResizeHandlesToImage = addResizeHandlesToImage;
         // Toutes les images sont traitées normalement
-        
+
         // Vérifier si déjà traité
         if (img.getAttribute('data-resizable') || img.parentElement?.classList.contains('resizable-image')) {
           return;
         }
-        
+
         // Attendre que l'image soit chargée
         if (!img.complete || img.naturalWidth === 0) {
           img.addEventListener('load', () => addResizeHandlesToImage(img), { once: true });
           return;
         }
-        
+
         img.setAttribute('data-resizable', 'true');
-        
+
         // Wrapper l'image dans un conteneur redimensionnable
         const wrapper = document.createElement('div');
         wrapper.className = 'resizable-image';
-        
+
         // Ajouter gestionnaire de clic pour sélection d'image
         img.addEventListener('click', (e) => {
           e.stopPropagation();
@@ -680,18 +680,18 @@ useEffect(() => {
             onImageClick(img);
           }
         });
-        
+
         // Extraire les dimensions depuis le style inline ou les attributs
         let currentWidth, currentHeight;
-        
+
         // Priorité 1: attributs HTML (ex: width="300px")
         const attrWidth = img.getAttribute('width');
         const attrHeight = img.getAttribute('height');
-        
+
         // Priorité 2: style inline (ex: style="width: 300px")
         const styleWidth = img.style.width;
         const styleHeight = img.style.height;
-        
+
         if (attrWidth && attrHeight) {
           currentWidth = parseInt(attrWidth);
           currentHeight = parseInt(attrHeight);
@@ -706,7 +706,7 @@ useEffect(() => {
           currentHeight = img.naturalHeight || 200;
           console.log('📏 Dimensions naturelles:', currentWidth, 'x', currentHeight);
         }
-        
+
         // Limiter la hauteur maximale à 300px en préservant le ratio d'aspect
         const MAX_HEIGHT = 300;
         if (currentHeight > MAX_HEIGHT) {
@@ -714,94 +714,98 @@ useEffect(() => {
           currentHeight = MAX_HEIGHT;
           currentWidth = Math.round(currentHeight * aspectRatio);
           console.log('🔄 Image redimensionnée pour hauteur max 300px:', currentWidth, 'x', currentHeight);
-          
+
           // Appliquer les nouvelles dimensions à l'image
           img.setAttribute('width', currentWidth + 'px');
           img.setAttribute('height', currentHeight + 'px');
           img.style.width = currentWidth + 'px';
           img.style.height = currentHeight + 'px';
         }
-        
+
         wrapper.style.width = currentWidth + 'px';
         wrapper.style.height = currentHeight + 'px';
-          
-          // Insérer le wrapper
-          img.parentNode.insertBefore(wrapper, img);
-          wrapper.appendChild(img);
-          
-          // Créer les 4 poignées
-          ['nw', 'ne', 'sw', 'se'].forEach((corner) => {
-            const handle = document.createElement('div');
-            handle.className = `resize-handle ${corner}`;
-            handle.dataset.corner = corner;
-            
-            handle.addEventListener('mousedown', (e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              
-              const startX = e.clientX;
-              const startY = e.clientY;
-              const startWidth = wrapper.offsetWidth;
-              const startHeight = wrapper.offsetHeight;
-              const aspectRatio = startWidth / startHeight;
-              
-              const handleMouseMove = (e) => {
-                const deltaX = e.clientX - startX;
-                const deltaY = e.clientY - startY;
-                
-                let newWidth = startWidth;
-                let newHeight = startHeight;
-                
-                // Calculer les nouvelles dimensions selon le coin
-                switch(corner) {
-                  case 'se': // Sud-Est
-                    newWidth = Math.max(50, startWidth + deltaX);
-                    newHeight = newWidth / aspectRatio;
-                    break;
-                  case 'sw': // Sud-Ouest
-                    newWidth = Math.max(50, startWidth - deltaX);
-                    newHeight = newWidth / aspectRatio;
-                    break;
-                  case 'ne': // Nord-Est
-                    newWidth = Math.max(50, startWidth + deltaX);
-                    newHeight = newWidth / aspectRatio;
-                    break;
-                  case 'nw': // Nord-Ouest
-                    newWidth = Math.max(50, startWidth - deltaX);
-                    newHeight = newWidth / aspectRatio;
-                    break;
-                }
-                
-                // Appliquer les nouvelles dimensions
-                wrapper.style.width = newWidth + 'px';
-                wrapper.style.height = newHeight + 'px';
-                img.style.width = '100%';
-                img.style.height = '100%';
-                
-                // Ajouter les attributs HTML width/height pour persistance lors des conversions
-                img.setAttribute('width', Math.round(newWidth) + 'px');
-                img.setAttribute('height', Math.round(newHeight) + 'px');
-              };
-              
-              const handleMouseUp = () => {
-                document.removeEventListener('mousemove', handleMouseMove);
-                document.removeEventListener('mouseup', handleMouseUp);
-                
-                // Déclencher l'événement de changement pour sauvegarder
-                if (onInput) {
-                  const event = new Event('input', { bubbles: true });
-                  editorRef.current.dispatchEvent(event);
-                }
-              };
-              
-              document.addEventListener('mousemove', handleMouseMove);
-              document.addEventListener('mouseup', handleMouseUp);
-            });
-            
-            wrapper.appendChild(handle);
+
+        // Insérer le wrapper (vérifier que parentNode existe)
+        if (!img.parentNode) {
+          console.warn('⚠️ Image sans parentNode, impossible d\'ajouter les poignées de redimensionnement');
+          return;
+        }
+        img.parentNode.insertBefore(wrapper, img);
+        wrapper.appendChild(img);
+
+        // Créer les 4 poignées
+        ['nw', 'ne', 'sw', 'se'].forEach((corner) => {
+          const handle = document.createElement('div');
+          handle.className = `resize-handle ${corner}`;
+          handle.dataset.corner = corner;
+
+          handle.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const startX = e.clientX;
+            const startY = e.clientY;
+            const startWidth = wrapper.offsetWidth;
+            const startHeight = wrapper.offsetHeight;
+            const aspectRatio = startWidth / startHeight;
+
+            const handleMouseMove = (e) => {
+              const deltaX = e.clientX - startX;
+              const deltaY = e.clientY - startY;
+
+              let newWidth = startWidth;
+              let newHeight = startHeight;
+
+              // Calculer les nouvelles dimensions selon le coin
+              switch (corner) {
+                case 'se': // Sud-Est
+                  newWidth = Math.max(50, startWidth + deltaX);
+                  newHeight = newWidth / aspectRatio;
+                  break;
+                case 'sw': // Sud-Ouest
+                  newWidth = Math.max(50, startWidth - deltaX);
+                  newHeight = newWidth / aspectRatio;
+                  break;
+                case 'ne': // Nord-Est
+                  newWidth = Math.max(50, startWidth + deltaX);
+                  newHeight = newWidth / aspectRatio;
+                  break;
+                case 'nw': // Nord-Ouest
+                  newWidth = Math.max(50, startWidth - deltaX);
+                  newHeight = newWidth / aspectRatio;
+                  break;
+              }
+
+              // Appliquer les nouvelles dimensions
+              wrapper.style.width = newWidth + 'px';
+              wrapper.style.height = newHeight + 'px';
+              img.style.width = '100%';
+              img.style.height = '100%';
+
+              // Ajouter les attributs HTML width/height pour persistance lors des conversions
+              img.setAttribute('width', Math.round(newWidth) + 'px');
+              img.setAttribute('height', Math.round(newHeight) + 'px');
+            };
+
+            const handleMouseUp = () => {
+              document.removeEventListener('mousemove', handleMouseMove);
+              document.removeEventListener('mouseup', handleMouseUp);
+
+              // Déclencher l'événement de changement pour sauvegarder
+              if (onInput) {
+                const event = new Event('input', { bubbles: true });
+                editorRef.current.dispatchEvent(event);
+              }
+            };
+
+            document.addEventListener('mousemove', handleMouseMove);
+            document.addEventListener('mouseup', handleMouseUp);
           });
+
+          wrapper.appendChild(handle);
+        });
       };
-      
+
       // Observer pour détecter les nouvelles images
       const handleMutation = (mutations) => {
         mutations.forEach(mutation => {
@@ -814,25 +818,25 @@ useEffect(() => {
           });
         });
       };
-      
+
       const observer = new MutationObserver(handleMutation);
       observer.observe(editorRef.current, {
         childList: true,
         subtree: true
       });
-      
+
       // Traiter les images existantes
       editorRef.current.querySelectorAll('img').forEach(addResizeHandlesToImage);
-      
+
       return () => observer.disconnect();
     }
   }, [viewMode, onInput, content]);
-  
+
   // Effect supprimé - La gestion des poignées est maintenant dans l'effect précédent
 
   // Rendu conditionnel avec switch/case pour garantir une seule vue
   console.log('🔄 Editor.js - Rendu switch/case, viewMode:', viewMode);
-  
+
   switch (viewMode) {
     case 'wysiwyg':
       console.log('🎯 SWITCH - Vue WYSIWYG');
@@ -978,9 +982,9 @@ useEffect(() => {
                 console.warn('⚠️ Événement onKeyDown invalide:', e);
                 return;
               }
-              
+
               console.log('🔽 WYSIWYG onKeyDown déclenché! Touche:', e.key);
-              
+
               // Gestion des touches pour les images sélectionnées
               if (selectedImage) {
                 if (e.key === 'Delete' || e.key === 'Backspace') {
@@ -989,12 +993,12 @@ useEffect(() => {
                   const wrapper = selectedImage.closest('.resizable-image');
                   const elementToRemove = wrapper || selectedImage;
                   elementToRemove.remove();
-                  
+
                   // Désélectionner l'image
                   if (onImageClick) {
                     onImageClick(null);
                   }
-                  
+
                   // Déclencher la sauvegarde
                   if (onInput) {
                     const event = new Event('input', { bubbles: true });
@@ -1005,46 +1009,46 @@ useEffect(() => {
                   e.preventDefault();
                   // Insérer une nouvelle ligne après l'image sélectionnée
                   const wrapper = selectedImage.closest('.resizable-image');
-                  if (wrapper) {
+                  if (wrapper && wrapper.parentNode) {
                     const newParagraph = document.createElement('p');
                     newParagraph.innerHTML = '<br>';
                     wrapper.parentNode.insertBefore(newParagraph, wrapper.nextSibling);
-                    
+
                     console.log('📍 ENTER Image - Création du paragraphe:', newParagraph);
-                    
+
                     // Attendre que tous les événements (onInput, handleWysiwygChange, etc.) se stabilisent
                     setTimeout(() => {
                       console.log('📍 ENTER Image - Positionnement curseur APRÈS stabilisation');
-                      
+
                       const selection = window.getSelection();
                       const range = document.createRange();
-                      
+
                       console.log('📍 ENTER Image - Selection avant (delayed):', selection.rangeCount);
-                      
+
                       // Positionner au début du paragraphe
                       range.setStart(newParagraph, 0);
                       range.collapse(true);
-                      
+
                       console.log('📍 ENTER Image - Range (delayed) startContainer:', range.startContainer);
                       console.log('📍 ENTER Image - Range (delayed) startOffset:', range.startOffset);
-                      
+
                       selection.removeAllRanges();
                       selection.addRange(range);
-                      
+
                       console.log('📍 ENTER Image - Selection (delayed) après:', selection.rangeCount);
-                      
+
                       // Focus pour s'assurer que le curseur est visible
                       editorRef.current?.focus();
-                      
+
                       console.log('📍 ENTER Image - Positionnement terminé avec succès!');
                     }, 100); // Délai pour laisser les événements se stabiliser
-                    
+
                     // Déclencher la sauvegarde
                     if (onInput) {
                       const event = new Event('input', { bubbles: true });
                       editorRef.current.dispatchEvent(event);
                     }
-                    
+
                     // Désélectionner l'image
                     if (onImageClick) {
                       onImageClick(null);
@@ -1053,7 +1057,7 @@ useEffect(() => {
                   return;
                 }
               }
-              
+
               // Mise à jour du formatage pour les touches de navigation
               if (e && e.key && (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
                 setTimeout(() => {
@@ -1101,7 +1105,7 @@ useEffect(() => {
     case 'markdown': {
       console.log('📝 SWITCH - Vue MARKDOWN');
       const displayContent = content;
-      
+
       return (
         <div key="markdown" className="relative">
           <textarea
@@ -1112,7 +1116,7 @@ useEffect(() => {
             onChange={(e) => {
               const newValue = e.target.value;
               const originalContent = content;
-              
+
               if (newValue !== originalContent) {
                 onInput({ ...e, target: { ...e.target, value: newValue } });
               }
@@ -1152,7 +1156,7 @@ $$\\int_{-\\infty}^{\\infty} e^{-x^2} dx = \\sqrt{\\pi}$$ (formule block)"
     case 'html': {
       console.log('🔧 SWITCH - Vue HTML');
       const htmlDisplayContent = formatHtmlForSource(content);
-    
+
       return (
         <div key="html" className="relative">
           <textarea
@@ -1163,13 +1167,13 @@ $$\\int_{-\\infty}^{\\infty} e^{-x^2} dx = \\sqrt{\\pi}$$ (formule block)"
             onChange={(e) => {
               const newValue = e.target.value;
               const originalWithCollapse = formatHtmlForSource(content);
-              
+
               if (newValue !== originalWithCollapse) {
                 onInput({ ...e, target: { ...e.target, value: newValue } });
               }
             }}
             className="editor-content p-2 w-full h-full border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-            style={{ 
+            style={{
               fontFamily: 'Monaco, "Cascadia Code", "Roboto Mono", monospace',
               overflow: 'auto',
               wordWrap: 'break-word',
