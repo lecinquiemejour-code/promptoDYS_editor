@@ -106,7 +106,7 @@ const App = () => {
   useEelBridge(content, setContent, viewMode);
 
   return (
-    <div className="h-screen bg-white w-full relative">
+    <div className="h-screen w-full relative transition-colors duration-200" style={{ backgroundColor: 'var(--dys-bg-color)' }}>
       {/* Removed PromptoDYS error messages */}
 
 
@@ -131,7 +131,7 @@ const App = () => {
       </div>
 
       {/* Toolbar fixée en bas */}
-      <div className="fixed bottom-8 left-0 right-0 bg-gray-50 border-t border-gray-200 px-5 py-2 z-10">
+      <div className="fixed bottom-8 left-0 right-0 px-5 py-2 z-10" style={{ backgroundColor: 'var(--dys-bg-color)' }}>
         <Toolbar
           content={content}
           setContent={setContent}
@@ -149,7 +149,7 @@ const App = () => {
       </div>
 
       {/* StatusBar tout en bas */}
-      <div className="fixed bottom-0 left-0 right-0 bg-gray-100 border-t border-gray-300 px-5 py-1 z-10">
+      <div className="fixed bottom-0 left-0 right-0 px-5 py-1 z-10" style={{ backgroundColor: 'var(--dys-bg-color)' }}>
         <StatusBar
           currentFormat={currentFormat}
           content={content}

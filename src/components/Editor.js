@@ -1096,7 +1096,9 @@ const Editor = forwardRef(({
               overflow: 'auto',
               wordWrap: 'break-word',
               whiteSpace: 'pre-wrap',
-              border: '1px solid #e5e7eb',
+              border: '2px solid #cbd5e1', // Bordure plus visible (Slate-300)
+              borderRadius: '8px',
+              boxShadow: 'inset 0 2px 4px 0 rgba(0, 0, 0, 0.06)',
             }}
           />
         </div>
@@ -1122,7 +1124,7 @@ const Editor = forwardRef(({
               }
             }}
             spellCheck={false}
-            className="editor-content p-2 w-full h-full border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+            className="editor-content p-2 w-full h-full border-2 border-slate-300 rounded-lg shadow-inner focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
             style={{
               fontFamily: 'var(--dys-font-family)',
               fontSize: 'var(--dys-font-size)',
@@ -1178,7 +1180,9 @@ $$\\int_{-\\infty}^{\\infty} e^{-x^2} dx = \\sqrt{\\pi}$$ (formule block)"
               overflow: 'auto',
               wordWrap: 'break-word',
               whiteSpace: 'pre-wrap',
-              border: '1px solid #e5e7eb',
+              border: '2px solid #cbd5e1',
+              borderRadius: '8px',
+              boxShadow: 'inset 0 2px 4px 0 rgba(0, 0, 0, 0.06)',
               paddingBottom: '2rem'
             }}
             placeholder="Code source HTML..."

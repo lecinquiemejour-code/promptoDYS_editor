@@ -1359,12 +1359,14 @@ const Toolbar = ({
   };
 
   return (
-    <div className="border-4 border-blue-600 rounded-lg bg-blue-100 py-3 shadow-lg w-full">
+    <div className="rounded-lg py-3 shadow-lg w-full" style={{ backgroundColor: 'var(--dys-bg-color)' }}>
+      {/* Ligne de séparation */}
+      <hr style={{ border: 'none', borderTop: '2px solid var(--dys-text-color)', margin: '0 0 12px 0' }} />
       {/* Ligne 1 - Format + Couleurs + Mode */}
       <div className="flex items-center justify-start space-x-6 mb-2 w-full">
         {/* Format buttons */}
         <div className="flex items-center space-x-2">
-          <span className="text-sm font-medium text-gray-700">Format:</span>
+          <span className="text-sm font-medium" style={{ color: 'var(--dys-text-color)' }}>Format:</span>
           <button
             onClick={() => execCommand('normal')}
             className={`px-2 py-0.5 text-xs rounded ${!currentFormat.bold && !currentFormat.italic && !currentFormat.heading && !currentFormat.list
@@ -1417,7 +1419,7 @@ const Toolbar = ({
 
         {/* Mode selection menu */}
         <div className="flex items-center space-x-2 mb-4">
-          <span className="text-sm font-medium text-gray-700">Mode:</span>
+          <span className="text-sm font-medium" style={{ color: 'var(--dys-text-color)' }}>Mode:</span>
           <select
             value={viewMode}
             onChange={(e) => onViewModeChange(e.target.value)}
@@ -1431,7 +1433,7 @@ const Toolbar = ({
 
         {/* Fichiers Markdown */}
         <div className="flex items-center space-x-2 mb-4">
-          <span className="text-sm font-medium text-gray-700">Document:</span>
+          <span className="text-sm font-medium" style={{ color: 'var(--dys-text-color)' }}>Document:</span>
           <div className="relative group">
             <button
               onClick={() => {
@@ -1511,10 +1513,10 @@ const Toolbar = ({
       <div className="flex items-center justify-start space-x-6 w-full">
         {/* Headings */}
         <div className="flex items-center space-x-2">
-          <span className="text-sm font-medium text-gray-700">Titres:</span>
+          <span className="text-sm font-medium" style={{ color: 'var(--dys-text-color)' }}>Titres:</span>
           <button
             onClick={() => execCommand('normal')}
-            className={`px-2 py-0.5 text-xs rounded ${!currentFormat.heading && !currentFormat.list
+            className={`system-ui px-2 py-0.5 text-xs rounded ${!currentFormat.heading && !currentFormat.list
               ? 'border-2 border-blue-500 bg-blue-50 text-blue-700'
               : 'border border-gray-400 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-500'
               }`}
@@ -1524,18 +1526,17 @@ const Toolbar = ({
           </button>
           <button
             onClick={() => handleHeading('h3')}
-            className={`px-2 py-0.5 text-xs rounded ${currentFormat.heading === 'h3'
+            className={`system-ui px-2 py-0.5 text-xs rounded ${currentFormat.heading === 'h3'
               ? 'border-2 border-blue-500 bg-blue-50 text-blue-700'
               : 'border border-gray-400 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-500'
               }`}
-            style={{ fontSize: '0.8em' }}
             disabled={viewMode !== 'wysiwyg'}
           >
             Titre 1
           </button>
           <button
             onClick={() => handleHeading('h2')}
-            className={`px-2 py-0.5 text-xs rounded ${currentFormat.heading === 'h2'
+            className={`system-ui px-2 py-0.5 text-xs rounded ${currentFormat.heading === 'h2'
               ? 'border-2 border-blue-500 bg-blue-50 text-blue-700'
               : 'border border-gray-400 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-500'
               }`}
@@ -1545,11 +1546,10 @@ const Toolbar = ({
           </button>
           <button
             onClick={() => handleHeading('h1')}
-            className={`px-2 py-0.5 text-xs rounded ${currentFormat.heading === 'h1'
+            className={`system-ui px-2 py-0.5 text-xs rounded ${currentFormat.heading === 'h1'
               ? 'border-2 border-blue-500 bg-blue-50 text-blue-700'
               : 'border border-gray-400 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-500'
               }`}
-            style={{ fontSize: '1.2em' }}
             disabled={viewMode !== 'wysiwyg'}
           >
             Titre 3
@@ -1558,7 +1558,7 @@ const Toolbar = ({
 
         {/* Lists */}
         <div className="flex items-center space-x-2">
-          <span className="text-sm font-medium text-gray-700">Listes:</span>
+          <span className="text-sm font-medium" style={{ color: 'var(--dys-text-color)' }}>Listes:</span>
           <button
             onClick={handleRemoveList}
             className="px-2 py-0.5 text-xs rounded border border-gray-400 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-500"
@@ -1601,7 +1601,7 @@ const Toolbar = ({
 
         {/* Boutons Undo/Redo */}
         <div className="flex items-center space-x-2">
-          <span className="text-sm font-medium text-gray-700">Édition:</span>
+          <span className="text-sm font-medium" style={{ color: 'var(--dys-text-color)' }}>Édition:</span>
           <div className="relative group">
             <button
               onClick={() => document.execCommand('undo', false, null)}

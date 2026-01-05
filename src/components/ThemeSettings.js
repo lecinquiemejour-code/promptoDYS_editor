@@ -176,7 +176,7 @@ const ThemeSettings = ({
       <div style={styles.modal}>
         <div style={styles.dragHandle}>
           <span>⚙️ Paramètres du thème</span>
-          <button 
+          <button
             onClick={toggleSettings}
             style={styles.closeButton}
             title="Fermer les paramètres du thème"
@@ -190,8 +190,8 @@ const ThemeSettings = ({
           <div style={styles.sectionTitle}>Thèmes prédéfinis</div>
           <div style={styles.presetGrid}>
             {presetThemes.map(theme => {
-              const isActive = settings.backgroundColor === theme.backgroundColor && 
-                              settings.textColor === theme.textColor;
+              const isActive = settings.backgroundColor === theme.backgroundColor &&
+                settings.textColor === theme.textColor;
               return (
                 <button
                   key={theme.name}
