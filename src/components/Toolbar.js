@@ -987,16 +987,122 @@ const Toolbar = ({
     console.log('🚀 EXECCOMMAND END:', command);
   };
 
+  // Fonction helper pour supprimer les listes de la sélection
+  const removeListFromSelection = () => {
+    const selection = window.getSelection();
+    if (selection.rangeCount > 0) {
+      let element = selection.getRangeAt(0).commonAncestorContainer;
+
+      // Remonter jusqu'à trouver un élément DOM
+      while (element && element.nodeType !== 1) {
+        element = element.parentNode;
+      }
+
+      // Chercher un parent UL ou OL
+      let listParent = element;
+      while (listParent && listParent !== editorRef.current) {
+        if (listParent.tagName === 'UL') {
+          console.log('🗑️ Liste à puces détectée, suppression...');
+          document.execCommand('insertUnorderedList', false, null);
+          return true;
+        } else if (listParent.tagName === 'OL') {
+          console.log('🗑️ Liste ordonnée détectée, suppression...');
+          document.execCommand('insertOrderedList', false, null);
+          return true;
+        }
+        listParent = listParent.parentNode;
+      }
+    }
+    return false;
+  };
+
+  // Fonction helper pour supprimer les titres de la sélection
+  const removeHeadingFromSelection = () => {
+    const selection = window.getSelection();
+    if (selection.rangeCount > 0) {
+      let element = selection.getRangeAt(0).commonAncestorContainer;
+
+      // Remonter jusqu'à trouver un élément DOM
+      while (element && element.nodeType !== 1) {
+        element = element.parentNode;
+      }
+
+      // Chercher un parent titre (H1-H6)
+      let headingParent = element;
+      while (headingParent && headingParent !== editorRef.current) {
+        if (headingParent.tagName?.match(/^H[1-6]$/)) {
+          console.log('🗑️ Titre détecté, conversion en paragraphe...');
+          document.execCommand('formatBlock', false, 'p');
+          return true;
+        }
+        headingParent = headingParent.parentNode;
+      }
+    }
+    return false;
+  };
+
+  // Fonction helper pour nettoyer les styles inline sauf la couleur
+  const cleanInlineStylesExceptColor = (element) => {
+    if (!element || !element.style) return;
+
+    // Sauvegarder la couleur si elle existe
+    const currentColor = element.style.color || window.getComputedStyle(element).color;
+
+    // Supprimer tous les styles inline
+    element.removeAttribute('style');
+
+    // Réappliquer uniquement la couleur si elle était définie et différente du noir par défaut
+    if (currentColor && currentColor !== 'rgb(0, 0, 0)' && currentColor !== '#000000') {
+      element.style.color = currentColor;
+    }
+
+    // Nettoyer récursivement les enfants (span, etc.)
+    const children = element.querySelectorAll('[style]');
+    children.forEach(child => {
+      const childColor = child.style.color || window.getComputedStyle(child).color;
+      child.removeAttribute('style');
+      if (childColor && childColor !== 'rgb(0, 0, 0)' && childColor !== '#000000') {
+        child.style.color = childColor;
+      }
+    });
+  };
+
   const handleHeading = (level) => {
     if (viewMode !== 'wysiwyg' || !editorRef.current) return;
 
     editorRef.current.focus();
+
+    // Supprimer les listes existantes avant d'appliquer le titre
+    removeListFromSelection();
 
     // Nettoyer le formatage existant avant d'appliquer le titre
     document.execCommand('removeFormat', false, null);
 
     // Appliquer le titre
     document.execCommand('formatBlock', false, level);
+
+    // NOUVEAU : Nettoyer les styles inline sauf la couleur
+    setTimeout(() => {
+      const selection = window.getSelection();
+      if (selection.rangeCount > 0) {
+        let element = selection.getRangeAt(0).commonAncestorContainer;
+
+        // Remonter jusqu'à trouver un élément DOM
+        while (element && element.nodeType !== 1) {
+          element = element.parentNode;
+        }
+
+        // Remonter jusqu'au titre (H1-H6)
+        while (element && !element.tagName?.match(/^H[1-6]$/)) {
+          element = element.parentNode;
+        }
+
+        if (element && element.tagName?.match(/^H[1-6]$/)) {
+          console.log('🧹 [handleHeading] Nettoyage styles inline du titre');
+          cleanInlineStylesExceptColor(element);
+        }
+      }
+    }, 50);
 
     onFormatChange({ bold: false, italic: false, color: '#000000', fontSize: '16px', fontFamily: 'system-ui', heading: level, list: null });
   };
@@ -1049,19 +1155,43 @@ const Toolbar = ({
 
     editorRef.current.focus();
 
+    // Supprimer les titres existants avant d'appliquer la liste
+    removeHeadingFromSelection();
+
+    // Appliquer la liste
     if (type === 'bullet') {
       document.execCommand('insertUnorderedList', false, null);
-      // Appliquer les styles inline pour indentation immédiate
       applyListStyles('UL');
     } else if (type === 'number') {
       document.execCommand('insertOrderedList', false, null);
-      // Appliquer les styles inline pour indentation immédiate
       applyListStyles('OL');
     } else if (type === 'letter') {
       document.execCommand('insertOrderedList', false, null);
-      // Appliquer le style alphabétique ET l'indentation
       applyListStyles('OL', 'lower-alpha');
     }
+
+    // Nettoyer les styles inline sauf la couleur
+    setTimeout(() => {
+      const selection = window.getSelection();
+      if (selection.rangeCount > 0) {
+        let element = selection.getRangeAt(0).commonAncestorContainer;
+
+        // Remonter jusqu'à trouver un élément DOM
+        while (element && element.nodeType !== 1) {
+          element = element.parentNode;
+        }
+
+        // Trouver l'élément de liste (LI)
+        while (element && element.tagName !== 'LI') {
+          element = element.parentNode;
+        }
+
+        if (element && element.tagName === 'LI') {
+          console.log('🧹 [handleList] Nettoyage styles inline de la liste');
+          cleanInlineStylesExceptColor(element);
+        }
+      }
+    }, 50);
 
     onFormatChange({ bold: false, italic: false, color: '#000000', fontSize: '16px', fontFamily: 'system-ui', heading: null, list: type });
   };
@@ -1200,8 +1330,8 @@ const Toolbar = ({
           <button
             onClick={() => execCommand('normal')}
             className={`px-2 py-0.5 text-xs rounded ${!currentFormat.bold && !currentFormat.italic && !currentFormat.heading && !currentFormat.list
-                ? 'border-2 border-blue-500 bg-blue-50 text-blue-700'
-                : 'border border-gray-400 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-500'
+              ? 'border-2 border-blue-500 bg-blue-50 text-blue-700'
+              : 'border border-gray-400 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-500'
               }`}
             disabled={viewMode !== 'wysiwyg'}
           >
@@ -1210,8 +1340,8 @@ const Toolbar = ({
           <button
             onClick={() => execCommand('bold')}
             className={`px-2 py-0.5 text-xs rounded font-bold ${currentFormat.bold
-                ? 'border-2 border-blue-500 bg-blue-50 text-blue-700'
-                : 'border border-gray-400 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-500'
+              ? 'border-2 border-blue-500 bg-blue-50 text-blue-700'
+              : 'border border-gray-400 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-500'
               }`}
             disabled={viewMode !== 'wysiwyg'}
           >
@@ -1220,8 +1350,8 @@ const Toolbar = ({
           <button
             onClick={() => execCommand('italic')}
             className={`px-2 py-0.5 text-xs rounded italic ${currentFormat.italic
-                ? 'border-2 border-blue-500 bg-blue-50 text-blue-700'
-                : 'border border-gray-400 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-500'
+              ? 'border-2 border-blue-500 bg-blue-50 text-blue-700'
+              : 'border border-gray-400 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-500'
               }`}
             disabled={viewMode !== 'wysiwyg'}
           >
@@ -1236,8 +1366,8 @@ const Toolbar = ({
               key={index}
               onClick={() => execCommand('foreColor', color.value)}
               className={`w-4 h-4 rounded-full border-2 ${currentFormat.color === color.value
-                  ? 'border-blue-500 ring-2 ring-blue-300'
-                  : 'border-gray-300 hover:border-gray-500'
+                ? 'border-blue-500 ring-2 ring-blue-300'
+                : 'border-gray-300 hover:border-gray-500'
                 }`}
               style={{ backgroundColor: color.value }}
               disabled={viewMode !== 'wysiwyg'}
@@ -1347,8 +1477,8 @@ const Toolbar = ({
           <button
             onClick={() => execCommand('normal')}
             className={`px-2 py-0.5 text-xs rounded ${!currentFormat.heading && !currentFormat.list
-                ? 'border-2 border-blue-500 bg-blue-50 text-blue-700'
-                : 'border border-gray-400 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-500'
+              ? 'border-2 border-blue-500 bg-blue-50 text-blue-700'
+              : 'border border-gray-400 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-500'
               }`}
             disabled={viewMode !== 'wysiwyg'}
           >
@@ -1357,8 +1487,8 @@ const Toolbar = ({
           <button
             onClick={() => handleHeading('h3')}
             className={`px-2 py-0.5 text-xs rounded ${currentFormat.heading === 'h3'
-                ? 'border-2 border-blue-500 bg-blue-50 text-blue-700'
-                : 'border border-gray-400 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-500'
+              ? 'border-2 border-blue-500 bg-blue-50 text-blue-700'
+              : 'border border-gray-400 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-500'
               }`}
             style={{ fontSize: '0.8em' }}
             disabled={viewMode !== 'wysiwyg'}
@@ -1368,8 +1498,8 @@ const Toolbar = ({
           <button
             onClick={() => handleHeading('h2')}
             className={`px-2 py-0.5 text-xs rounded ${currentFormat.heading === 'h2'
-                ? 'border-2 border-blue-500 bg-blue-50 text-blue-700'
-                : 'border border-gray-400 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-500'
+              ? 'border-2 border-blue-500 bg-blue-50 text-blue-700'
+              : 'border border-gray-400 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-500'
               }`}
             disabled={viewMode !== 'wysiwyg'}
           >
@@ -1378,8 +1508,8 @@ const Toolbar = ({
           <button
             onClick={() => handleHeading('h1')}
             className={`px-2 py-0.5 text-xs rounded ${currentFormat.heading === 'h1'
-                ? 'border-2 border-blue-500 bg-blue-50 text-blue-700'
-                : 'border border-gray-400 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-500'
+              ? 'border-2 border-blue-500 bg-blue-50 text-blue-700'
+              : 'border border-gray-400 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-500'
               }`}
             style={{ fontSize: '1.2em' }}
             disabled={viewMode !== 'wysiwyg'}
@@ -1402,8 +1532,8 @@ const Toolbar = ({
           <button
             onClick={() => handleList('bullet')}
             className={`px-2 py-0.5 text-xs rounded ${currentFormat.list === 'bullet'
-                ? 'border-2 border-blue-500 bg-blue-50 text-blue-700'
-                : 'border border-gray-400 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-500'
+              ? 'border-2 border-blue-500 bg-blue-50 text-blue-700'
+              : 'border border-gray-400 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-500'
               }`}
             disabled={viewMode !== 'wysiwyg'}
           >
@@ -1412,8 +1542,8 @@ const Toolbar = ({
           <button
             onClick={() => handleList('number')}
             className={`px-2 py-0.5 text-xs rounded ${currentFormat.list === 'number'
-                ? 'border-2 border-blue-500 bg-blue-50 text-blue-700'
-                : 'border border-gray-400 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-500'
+              ? 'border-2 border-blue-500 bg-blue-50 text-blue-700'
+              : 'border border-gray-400 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-500'
               }`}
             disabled={viewMode !== 'wysiwyg'}
           >
@@ -1422,8 +1552,8 @@ const Toolbar = ({
           <button
             onClick={() => handleList('letter')}
             className={`px-2 py-0.5 text-xs rounded ${currentFormat.list === 'letter'
-                ? 'border-2 border-blue-500 bg-blue-50 text-blue-700'
-                : 'border border-gray-400 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-500'
+              ? 'border-2 border-blue-500 bg-blue-50 text-blue-700'
+              : 'border border-gray-400 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-500'
               }`}
             disabled={viewMode !== 'wysiwyg'}
           >
