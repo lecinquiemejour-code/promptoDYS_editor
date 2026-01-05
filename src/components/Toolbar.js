@@ -1138,10 +1138,15 @@ const Toolbar = ({
       if (element && element.tagName === tagName) {
         // Appliquer l'indentation (cohérent avec markdownConverter.js)
         element.style.paddingLeft = '2.5em';
-        // Appliquer le style de liste si spécifié (alphabétique)
+
+        // Appliquer le style de liste si spécifié (alphabétique) ou réinitialiser
         if (listStyleType) {
           element.style.listStyleType = listStyleType;
+        } else {
+          // Reset explicite pour revenir au défaut (numéros)
+          element.style.listStyleType = '';
         }
+
         console.log(`✅ Styles appliqués à <${tagName}>:`, {
           paddingLeft: element.style.paddingLeft,
           listStyleType: element.style.listStyleType || 'default'
@@ -1155,19 +1160,51 @@ const Toolbar = ({
 
     editorRef.current.focus();
 
+    // CAS 1: Toggle OFF - Si on clique sur le même type déjà actif
+    if (currentFormat.list === type) {
+      console.log('🔄 [handleList] Toggle OFF simple');
+      if (type === 'bullet') {
+        document.execCommand('insertUnorderedList', false, null);
+      } else {
+        // Pour number ET letter (tous deux des OL)
+        document.execCommand('insertOrderedList', false, null);
+      }
+      onFormatChange({ ...currentFormat, list: null });
+      return;
+    }
+
     // Supprimer les titres existants avant d'appliquer la liste
     removeHeadingFromSelection();
 
-    // Appliquer la liste
-    if (type === 'bullet') {
-      document.execCommand('insertUnorderedList', false, null);
-      applyListStyles('UL');
-    } else if (type === 'number') {
-      document.execCommand('insertOrderedList', false, null);
-      applyListStyles('OL');
-    } else if (type === 'letter') {
-      document.execCommand('insertOrderedList', false, null);
-      applyListStyles('OL', 'lower-alpha');
+    // CAS 2: Smart Switch (OL <-> OL pour Numéros/Lettres)
+    // Si on est déjà en liste ordonnée (number ou letter) ET qu'on demande number ou letter
+    const isOrderedListActive = currentFormat.list === 'number' || currentFormat.list === 'letter';
+    const isTargetOrdered = type === 'number' || type === 'letter';
+
+    if (isOrderedListActive && isTargetOrdered) {
+      console.log(`🔄 [handleList] Smart Switch: ${currentFormat.list} -> ${type}`);
+      // Ne PAS appeler execCommand (qui ferait un toggle off)
+      // Juste appliquer le nouveau style
+      if (type === 'letter') {
+        applyListStyles('OL', 'lower-alpha');
+      } else {
+        applyListStyles('OL', null); // Reset to numbers
+      }
+    } else {
+      // CAS 3: Standard (Rien -> Liste, ou UL <-> OL)
+      console.log(`🔄 [handleList] Standard Switch: ${currentFormat.list || 'none'} -> ${type}`);
+
+      // Appliquer la liste
+      if (type === 'bullet') {
+        document.execCommand('insertUnorderedList', false, null);
+        applyListStyles('UL');
+      } else if (type === 'number') {
+        document.execCommand('insertOrderedList', false, null);
+        applyListStyles('OL');
+      } else if (type === 'letter') {
+        document.execCommand('insertOrderedList', false, null);
+        applyListStyles('OL', 'lower-alpha');
+      }
     }
 
     // Nettoyer les styles inline sauf la couleur
@@ -1193,6 +1230,7 @@ const Toolbar = ({
       }
     }, 50);
 
+    // Mettre à jour l'état (réinitialise les autres formats comme avant)
     onFormatChange({ bold: false, italic: false, color: '#000000', fontSize: '16px', fontFamily: 'system-ui', heading: null, list: type });
   };
 
