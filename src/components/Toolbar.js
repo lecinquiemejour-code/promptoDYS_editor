@@ -1531,18 +1531,6 @@ const Toolbar = ({
               <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
             </div>
           </div>
-          <div className="relative group">
-            <button
-              onClick={onConfigModalToggle}
-              className="border border-gray-400 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-500 px-2 py-1 text-xs rounded"
-            >
-              ⚙️ Config
-            </button>
-            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
-              Configuration générale de l'éditeur
-              <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
-            </div>
-          </div>
         </div>
 
 
@@ -1683,6 +1671,18 @@ const Toolbar = ({
             </button>
             <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
               Paramètres du thème
+              <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
+            </div>
+          </div>
+          <div className="relative group">
+            <button
+              onClick={onConfigModalToggle}
+              className="px-3 py-1 text-sm rounded border border-gray-400 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-500 font-medium"
+            >
+              ⚙️ Config
+            </button>
+            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
+              Configuration générale de l'éditeur
               <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
             </div>
           </div>

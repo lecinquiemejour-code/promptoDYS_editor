@@ -82,3 +82,8 @@ eel.start('index.html', size=(1280, 800))
 ## 🚀 Utilisation
 1. **Lancer le build** : `npm run build`
 2. **Lancer Python** : `python app.py` (en pointant eel.init sur le dossier `build/`).
+
+## 🔮 Évolutions à venir
+- **Text-to-Speech** : Lecture audio de la sélection de texte.
+- **Coloration DYS** : Support de la coloration syllabique, syntaxique et alternée pour faciliter la lecture (vision DYS).
+- **Règle de lecture** : Bande horizontale colorée qui suit le curseur pour guider le regard et réduire la surcharge visuelle (aide DYS).
