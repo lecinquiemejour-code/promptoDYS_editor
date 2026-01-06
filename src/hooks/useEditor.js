@@ -8,13 +8,13 @@ export const useEditor = () => {
     try {
       const refreshData = localStorage.getItem('editor-refresh-backup');
       console.log('📦 [useEditor] Données refresh trouvées:', refreshData ? 'OUI' : 'NON');
-      
+
       if (refreshData) {
         const parsed = JSON.parse(refreshData);
         const timeDiff = Date.now() - parsed.timestamp;
         console.log('⏱️ [useEditor] Temps écoulé depuis sauvegarde:', timeDiff, 'ms');
         console.log('📄 [useEditor] Contenu sauvegardé:', parsed.content?.substring(0, 100) + '...');
-        
+
         // Restaurer toujours si contenu disponible (persistance infinie)
         if (parsed.content) {
           console.log('✅ [useEditor] Restauration du contenu sauvegardé!');
@@ -26,14 +26,14 @@ export const useEditor = () => {
     } catch (error) {
       console.error('❌ [useEditor] Erreur lors de la restauration du contenu:', error);
     }
-    
+
     // Contenu par défaut si pas de sauvegarde récente
     console.log('📝 [useEditor] Utilisation du contenu par défaut');
     return '<p>Bienvenue dans votre éditeur WYSIWYG</p><p>Commencez à écrire votre <strong>document</strong> ici.</p><p>Le contenu est automatiquement sauvegardé.</p>';
   };
 
   const [content, setContent] = useState(getInitialContent());
-  
+
   // Remplacer isWysiwyg par viewMode avec 3 options
   const [viewMode, setViewMode] = useState(() => {
     console.log('🔍 [useEditor] Vérification mode view pour refresh...');
@@ -44,7 +44,7 @@ export const useEditor = () => {
         const timeDiff = Date.now() - parsed.timestamp;
         console.log('⏱️ [useEditor] Mode - Temps écoulé:', timeDiff, 'ms');
         console.log('👁️ [useEditor] Mode sauvegardé:', parsed.viewMode);
-        
+
         // Restaurer toujours le mode si disponible (persistance infinie)
         if (parsed.viewMode) {
           console.log('✅ [useEditor] Restauration du mode:', parsed.viewMode);
@@ -59,18 +59,19 @@ export const useEditor = () => {
     } catch (error) {
       console.error('❌ [useEditor] Erreur lors de la restauration du mode:', error);
     }
-    
+
     // Force le mode 'wysiwyg' par défaut - toujours démarrer en mode visuel
     console.log('📝 [useEditor] Utilisation du mode par défaut: wysiwyg');
     return 'wysiwyg';
   });
-  
+
   const [currentFormat, setCurrentFormat] = useState(() => {
     // Récupérer la police sauvegardée depuis localStorage
     const savedFont = localStorage.getItem('editor-font') || 'system-ui, -apple-system, sans-serif';
     return {
       bold: false,
       italic: false,
+      underline: false,
       color: '#000000',
       fontSize: '16px',
       fontFamily: savedFont,
@@ -84,7 +85,7 @@ export const useEditor = () => {
 
   // Mémoriser le dernier formatage appliqué pour les débuts de ligne
   const lastAppliedFormatRef = useRef(null);
-  
+
   const editorRef = useRef(null);
   const selectionRef = useRef(null);
   const ignoreSelectionChangeRef = useRef(false);
@@ -133,10 +134,10 @@ export const useEditor = () => {
     }
 
     // Si on vient d'appliquer un formatage Normal, le préserver
-    if (lastAppliedFormatRef.current && 
-        lastAppliedFormatRef.current.heading === null && 
-        lastAppliedFormatRef.current.bold === false &&
-        lastAppliedFormatRef.current.italic === false) {
+    if (lastAppliedFormatRef.current &&
+      lastAppliedFormatRef.current.heading === null &&
+      lastAppliedFormatRef.current.bold === false &&
+      lastAppliedFormatRef.current.italic === false) {
       setCurrentFormat(lastAppliedFormatRef.current);
       return;
     }
@@ -146,6 +147,7 @@ export const useEditor = () => {
     const newFormat = {
       bold: false,
       italic: false,
+      underline: false,
       color: '#000000',
       fontSize: '16px',
       fontFamily: 'system-ui',
@@ -164,6 +166,10 @@ export const useEditor = () => {
       }
       if (tagName === 'em' || tagName === 'i' || computedStyle.fontStyle === 'italic') {
         newFormat.italic = true;
+      }
+      // Détecter le souligné
+      if (tagName === 'u' || computedStyle.textDecoration.includes('underline')) {
+        newFormat.underline = true;
       }
       if (tagName?.match(/^h[1-6]$/)) {
         newFormat.heading = tagName;
@@ -218,11 +224,11 @@ export const useEditor = () => {
   const rgbToHex = (rgb) => {
     const result = rgb.match(/\d+/g);
     if (!result || result.length < 3) return '#000000';
-    
+
     const r = parseInt(result[0]);
     const g = parseInt(result[1]);
     const b = parseInt(result[2]);
-    
+
     return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
   };
 
@@ -256,9 +262,9 @@ export const useEditor = () => {
   // Fonction pour changer de vue avec conversion automatique
   const changeViewMode = useCallback((newMode) => {
     if (newMode === viewMode) return;
-    
+
     let newContent = content;
-    
+
     // Conversions entre les vues
     if (viewMode === 'wysiwyg' && newMode === 'markdown') {
       newContent = htmlToMarkdown(content);
@@ -272,11 +278,11 @@ export const useEditor = () => {
     // wysiwyg -> html : nettoyer les data-attributes
     if (viewMode === 'wysiwyg' && newMode === 'html') {
       newContent = content.replace(/ data-type="[^"]*"/g, '')
-                         .replace(/ data-number="[^"]*"/g, '')
-                         .replace(/ data-letter="[^"]*"/g, '');
+        .replace(/ data-number="[^"]*"/g, '')
+        .replace(/ data-letter="[^"]*"/g, '');
     }
     // html -> wysiwyg : pas de conversion nécessaire
-    
+
     setContent(newContent);
     setViewMode(newMode);
   }, [viewMode, content]);

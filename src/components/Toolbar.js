@@ -38,6 +38,20 @@ const Toolbar = ({
   const [showImportHtmlModal, setShowImportHtmlModal] = useState(false);
   const [importedFileName, setImportedFileName] = useState('');
 
+  // Styles pour les boutons de la toolbar (compatibles dark mode)
+  const buttonActiveStyle = {
+    backgroundColor: 'var(--dys-text-color)',
+    color: 'var(--dys-bg-color)',
+    border: '2px solid var(--dys-text-color)',
+    fontWeight: 'bold'
+  };
+
+  const buttonInactiveStyle = {
+    backgroundColor: 'var(--dys-bg-color)',
+    color: 'var(--dys-text-color)',
+    border: '1px solid var(--dys-text-color)'
+  };
+
   // Vérifier le support File System Access API
   const isFileSystemAccessSupported = () => {
     return 'showDirectoryPicker' in window && 'showOpenFilePicker' in window;
@@ -933,10 +947,15 @@ const Toolbar = ({
     } else if (command === 'italic') {
       newFormat.italic = !currentFormat.italic;
       document.execCommand('italic', false, null);
+    } else if (command === 'underline') {
+      // Souligné - toggle
+      newFormat.underline = !currentFormat.underline;
+      document.execCommand('underline', false, null);
     } else if (command === 'normal') {
       // État Normal immédiat - FORCE tout à false
       newFormat.bold = false;
       newFormat.italic = false;
+      newFormat.underline = false;
       newFormat.color = '#000000';
       newFormat.fontSize = '16px';
       newFormat.fontFamily = 'system-ui';
@@ -949,6 +968,9 @@ const Toolbar = ({
       }
       if (document.queryCommandState('italic')) {
         document.execCommand('italic', false, null);
+      }
+      if (document.queryCommandState('underline')) {
+        document.execCommand('underline', false, null);
       }
       document.execCommand('removeFormat', false, null);
       document.execCommand('formatBlock', false, 'p');
@@ -970,6 +992,7 @@ const Toolbar = ({
         onFormatChange({
           bold: false,
           italic: false,
+          underline: false,
           color: '#000000',
           fontSize: '16px',
           fontFamily: 'system-ui',
@@ -1371,33 +1394,35 @@ const Toolbar = ({
           <span className="text-sm font-medium" style={{ color: 'var(--dys-text-color)' }}>Format:</span>
           <button
             onClick={() => execCommand('normal')}
-            className={`px-2 py-0.5 text-xs rounded ${!currentFormat.bold && !currentFormat.italic && !currentFormat.heading && !currentFormat.list
-              ? 'border-2 border-blue-500 bg-blue-50 text-blue-700'
-              : 'border border-gray-400 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-500'
-              }`}
+            className="px-2 py-0.5 text-xs rounded"
+            style={!currentFormat.bold && !currentFormat.italic && !currentFormat.underline && !currentFormat.heading && !currentFormat.list ? buttonActiveStyle : buttonInactiveStyle}
             disabled={viewMode !== 'wysiwyg'}
           >
             Normal
           </button>
           <button
             onClick={() => execCommand('bold')}
-            className={`px-2 py-0.5 text-xs rounded font-bold ${currentFormat.bold
-              ? 'border-2 border-blue-500 bg-blue-50 text-blue-700'
-              : 'border border-gray-400 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-500'
-              }`}
+            className="px-2 py-0.5 text-xs rounded font-bold"
+            style={currentFormat.bold ? buttonActiveStyle : buttonInactiveStyle}
             disabled={viewMode !== 'wysiwyg'}
           >
             Gras
           </button>
           <button
             onClick={() => execCommand('italic')}
-            className={`px-2 py-0.5 text-xs rounded italic ${currentFormat.italic
-              ? 'border-2 border-blue-500 bg-blue-50 text-blue-700'
-              : 'border border-gray-400 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-500'
-              }`}
+            className="px-2 py-0.5 text-xs rounded italic"
+            style={currentFormat.italic ? buttonActiveStyle : buttonInactiveStyle}
             disabled={viewMode !== 'wysiwyg'}
           >
             Italique
+          </button>
+          <button
+            onClick={() => execCommand('underline')}
+            className="px-2 py-0.5 text-xs rounded underline"
+            style={currentFormat.underline ? buttonActiveStyle : buttonInactiveStyle}
+            disabled={viewMode !== 'wysiwyg'}
+          >
+            Souligné
           </button>
         </div>
 
@@ -1530,40 +1555,32 @@ const Toolbar = ({
           <span className="text-sm font-medium" style={{ color: 'var(--dys-text-color)' }}>Titres:</span>
           <button
             onClick={() => execCommand('normal')}
-            className={`system-ui px-2 py-0.5 text-xs rounded ${!currentFormat.heading && !currentFormat.list
-              ? 'border-2 border-blue-500 bg-blue-50 text-blue-700'
-              : 'border border-gray-400 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-500'
-              }`}
+            className="px-2 py-0.5 text-xs rounded"
+            style={!currentFormat.heading && !currentFormat.list ? buttonActiveStyle : buttonInactiveStyle}
             disabled={viewMode !== 'wysiwyg'}
           >
             Texte
           </button>
           <button
             onClick={() => handleHeading('h3')}
-            className={`system-ui px-2 py-0.5 text-xs rounded ${currentFormat.heading === 'h3'
-              ? 'border-2 border-blue-500 bg-blue-50 text-blue-700'
-              : 'border border-gray-400 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-500'
-              }`}
+            className="px-2 py-0.5 text-xs rounded"
+            style={currentFormat.heading === 'h3' ? buttonActiveStyle : buttonInactiveStyle}
             disabled={viewMode !== 'wysiwyg'}
           >
             Titre 1
           </button>
           <button
             onClick={() => handleHeading('h2')}
-            className={`system-ui px-2 py-0.5 text-xs rounded ${currentFormat.heading === 'h2'
-              ? 'border-2 border-blue-500 bg-blue-50 text-blue-700'
-              : 'border border-gray-400 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-500'
-              }`}
+            className="px-2 py-0.5 text-xs rounded"
+            style={currentFormat.heading === 'h2' ? buttonActiveStyle : buttonInactiveStyle}
             disabled={viewMode !== 'wysiwyg'}
           >
             Titre 2
           </button>
           <button
             onClick={() => handleHeading('h1')}
-            className={`system-ui px-2 py-0.5 text-xs rounded ${currentFormat.heading === 'h1'
-              ? 'border-2 border-blue-500 bg-blue-50 text-blue-700'
-              : 'border border-gray-400 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-500'
-              }`}
+            className="px-2 py-0.5 text-xs rounded"
+            style={currentFormat.heading === 'h1' ? buttonActiveStyle : buttonInactiveStyle}
             disabled={viewMode !== 'wysiwyg'}
           >
             Titre 3
@@ -1575,7 +1592,8 @@ const Toolbar = ({
           <span className="text-sm font-medium" style={{ color: 'var(--dys-text-color)' }}>Listes:</span>
           <button
             onClick={handleRemoveList}
-            className="px-2 py-0.5 text-xs rounded border border-gray-400 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-500"
+            className="px-2 py-0.5 text-xs rounded"
+            style={buttonInactiveStyle}
             disabled={viewMode !== 'wysiwyg'}
             title="Supprimer la liste"
           >
@@ -1583,30 +1601,24 @@ const Toolbar = ({
           </button>
           <button
             onClick={() => handleList('bullet')}
-            className={`px-2 py-0.5 text-xs rounded ${currentFormat.list === 'bullet'
-              ? 'border-2 border-blue-500 bg-blue-50 text-blue-700'
-              : 'border border-gray-400 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-500'
-              }`}
+            className="px-2 py-0.5 text-xs rounded"
+            style={currentFormat.list === 'bullet' ? buttonActiveStyle : buttonInactiveStyle}
             disabled={viewMode !== 'wysiwyg'}
           >
             • Puces
           </button>
           <button
             onClick={() => handleList('number')}
-            className={`px-2 py-0.5 text-xs rounded ${currentFormat.list === 'number'
-              ? 'border-2 border-blue-500 bg-blue-50 text-blue-700'
-              : 'border border-gray-400 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-500'
-              }`}
+            className="px-2 py-0.5 text-xs rounded"
+            style={currentFormat.list === 'number' ? buttonActiveStyle : buttonInactiveStyle}
             disabled={viewMode !== 'wysiwyg'}
           >
             1. Numéros
           </button>
           <button
             onClick={() => handleList('letter')}
-            className={`px-2 py-0.5 text-xs rounded ${currentFormat.list === 'letter'
-              ? 'border-2 border-blue-500 bg-blue-50 text-blue-700'
-              : 'border border-gray-400 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-500'
-              }`}
+            className="px-2 py-0.5 text-xs rounded"
+            style={currentFormat.list === 'letter' ? buttonActiveStyle : buttonInactiveStyle}
             disabled={viewMode !== 'wysiwyg'}
           >
             a. Lettres
