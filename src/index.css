@@ -129,3 +129,9 @@ code {
   color: inherit !important;
   font-family: inherit !important;
 }
+
+/* Options désactivées dans les menus select */
+select option:disabled {
+  color: #9ca3af !important;
+  background-color: #f3f4f6 !important;
+}

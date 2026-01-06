@@ -26,6 +26,9 @@ Contrairement aux anciennes versions qui injectaient du code dans le build, la n
 - Synchroniser l'état React de manière fluide.
 - Gérer proprement le démarrage et l'arrêt de la communication.
 
+## ⚙️ Contraintes techniques
+- **Fonctionnement 100% offline** : L'éditeur doit fonctionner sans connexion internet, toutes les ressources (bibliothèques, polices, icônes) doivent être embarquées localement.
+
 ## 🏗️ Structure du projet (Nettoyée)
 
 ```

@@ -3,12 +3,14 @@ import { useEditor } from './hooks/useEditor';
 import { useEelBridge } from './hooks/useEelBridge';
 import { useThemeSettings } from './hooks/useThemeSettings';
 import { useMathJax } from './hooks/useMathJax';
+import { useConfig } from './hooks/useConfig';
 // Removed unused imports
 // Removed PromptoDYS imports - using simple project management
 import Toolbar from './components/Toolbar';
 import Editor from './components/Editor';
 import StatusBar from './components/StatusBar';
 import ThemeSettings from './components/ThemeSettings';
+import SettingsModal from './components/Settings/SettingsModal';
 
 const App = () => {
   // 🟢 DEMO GIT: Ce commentaire est un "changement" pour tester le commit
@@ -97,6 +99,26 @@ const App = () => {
     toggleSettings
   } = useThemeSettings();
 
+  // Hook pour configuration générale de l'application
+  const { config, setConfigValue, isLoading: configLoading } = useConfig();
+  const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
+
+  // Log du mode développeur
+  useEffect(() => {
+    if (!configLoading && config.developer_mode) {
+      console.log('🐛 [App] Mode développeur activé');
+      console.log('📋 [App] Configuration complète:', config);
+    }
+  }, [config, configLoading]);
+
+  // Forcer le mode WYSIWYG si developer_mode est désactivé et qu'on est en mode markdown/html
+  useEffect(() => {
+    if (!configLoading && !config.developer_mode && (viewMode === 'markdown' || viewMode === 'html')) {
+      console.log('⚠️ [App] Mode développeur désactivé - Retour au mode WYSIWYG');
+      changeViewMode('wysiwyg');
+    }
+  }, [config.developer_mode, configLoading, viewMode, changeViewMode]);
+
   // ⚡ Intégration MathJax en local
   useMathJax();
 
@@ -141,6 +163,8 @@ const App = () => {
           onFormatChange={setCurrentFormat}
           editorRef={editorRef}
           onThemeSettingsToggle={toggleSettings}
+          onConfigModalToggle={() => setIsConfigModalOpen(true)}
+          developerMode={config.developer_mode}
           ignoreSelectionChangeRef={ignoreSelectionChangeRef}
           storeBlobForUrl={storeBlobForUrl}
           getBlobFromUrl={getBlobFromUrl}
@@ -169,6 +193,14 @@ const App = () => {
         updateSetting={updateSetting}
         resetToDefaults={resetToDefaults}
         applyPresetTheme={applyPresetTheme}
+      />
+
+      {/* Modal de Configuration Générale */}
+      <SettingsModal
+        isOpen={isConfigModalOpen}
+        onClose={() => setIsConfigModalOpen(false)}
+        config={config}
+        onConfigChange={setConfigValue}
       />
     </div>
   );
