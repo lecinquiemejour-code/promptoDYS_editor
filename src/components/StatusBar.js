@@ -62,7 +62,7 @@ const StatusBar = ({ currentFormat, content, dysSettings }) => {
   return (
     <div className="px-4 py-2" style={{ backgroundColor: 'var(--dys-bg-color)' }}>
       {/* Ligne de séparation */}
-      <hr style={{ border: 'none', borderTop: '2px solid var(--dys-text-color)', margin: '0 0 8px 0' }} />
+
       <div className="flex items-center text-sm" style={{ color: 'var(--dys-text-color)' }}>
         <div className="flex space-x-6">
           <span>✏️ <span className="font-medium">{getDysInfo()}</span></span>
