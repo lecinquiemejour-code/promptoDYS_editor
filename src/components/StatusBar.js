@@ -1,6 +1,16 @@
 import React from 'react';
 
-const StatusBar = ({ currentFormat, content, dysSettings }) => {
+const StatusBar = ({
+  currentFormat,
+  content,
+  dysSettings,
+  // Props TTS
+  isTtsSupported,
+  isSpeaking,
+  isPaused,
+  handleSpeak,
+  handleStopSpeak
+}) => {
 
 
   const getFormatDescription = () => {
@@ -80,6 +90,40 @@ const StatusBar = ({ currentFormat, content, dysSettings }) => {
             ></span>
           </span>
         </div>
+
+        {/* Contrôles TTS alignés à droite */}
+        {isTtsSupported && (
+          <div className="flex items-center space-x-2" style={{ marginLeft: 'auto', paddingLeft: '48px' }}>
+            <span style={{ fontSize: '14px' }}>Lecture vocale :</span>
+            <button
+              onClick={handleSpeak}
+              className="px-2 py-1 rounded transition-colors"
+              style={{
+                fontSize: '16.8px', // 1.2x de 14px
+                backgroundColor: isSpeaking || isPaused ? '#3b82f6' : '#e5e7eb',
+                color: isSpeaking || isPaused ? '#ffffff' : '#374151'
+              }}
+              title={isSpeaking ? (isPaused ? "Reprendre la lecture" : "Mettre en pause") : "Lire le texte sélectionné"}
+            >
+              {isSpeaking && !isPaused ? '⏸️' : '🔊'}
+            </button>
+
+            {(isSpeaking || isPaused) && (
+              <button
+                onClick={handleStopSpeak}
+                className="px-2 py-1 rounded transition-colors"
+                style={{
+                  fontSize: '16.8px', // 1.2x de 14px
+                  backgroundColor: '#e5e7eb',
+                  color: '#374151'
+                }}
+                title="Arrêter la lecture"
+              >
+                ⏹️
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

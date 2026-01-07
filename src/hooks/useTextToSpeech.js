@@ -28,6 +28,8 @@ const useTextToSpeech = (options = {}) => {
 
     const utteranceRef = useRef(null);
     const synth = useRef(window.speechSynthesis);
+    const charIndexRef = useRef(0);
+    const textRef = useRef('');
 
     useEffect(() => {
         if (typeof window !== 'undefined' && window.speechSynthesis) {
@@ -48,9 +50,27 @@ const useTextToSpeech = (options = {}) => {
         }
     }, []);
 
+    // Effet pour appliquer les changements en temps réel
+    useEffect(() => {
+        if (isSpeaking && !isPaused && textRef.current) {
+            // Si on parle, on relance la lecture avec les nouveaux paramètres
+            // en partant de la position actuelle
+            const currentPosition = charIndexRef.current;
+
+            // Petit délai pour laisser le temps à l'annulation de se faire proprement
+            synth.current.cancel();
+
+            // Relancer avec un léger délai pour éviter les conflits
+            setTimeout(() => {
+                speak(textRef.current, currentPosition);
+            }, 50);
+        }
+    }, [options.voiceName, options.rate, options.pitch]); // Dépendances explicites pour le redémarrage
+
     const handleEnd = useCallback(() => {
         setIsSpeaking(false);
         setIsPaused(false);
+        charIndexRef.current = 0; // Réinitialiser à la fin
     }, []);
 
     const cancel = useCallback(() => {
@@ -72,18 +92,24 @@ const useTextToSpeech = (options = {}) => {
         setIsPaused(false);
     }, [isSupported]);
 
-    const speak = useCallback((text) => {
+    const speak = useCallback((text, startOffset = 0) => {
         if (!isSupported || !text) return;
+
+        // Sauvegarder le texte en cours
+        textRef.current = text;
 
         // Arrêter toute lecture en cours
         cancel();
 
-        const utterance = new SpeechSynthesisUtterance(text);
-        utteranceRef.current = utterance;
-
         // Récupérer les options fraîches depuis la ref
         const currentOptions = optionsRef.current;
         const { pitch = 1, rate = 1, volume = 1, voiceName = null } = currentOptions;
+
+        // Gérer le texte partiel si on redémarre au milieu
+        const textToRead = startOffset > 0 ? text.substring(startOffset) : text;
+
+        const utterance = new SpeechSynthesisUtterance(textToRead);
+        utteranceRef.current = utterance;
 
         // Configuration des paramètres
         utterance.pitch = pitch;
@@ -109,6 +135,12 @@ const useTextToSpeech = (options = {}) => {
             setIsPaused(false);
         };
 
+        utterance.onboundary = (event) => {
+            // Mettre à jour la position globale
+            // startOffset est le décalage initial si on a redémarré
+            charIndexRef.current = startOffset + event.charIndex;
+        };
+
         utterance.onend = handleEnd;
         utterance.onerror = (event) => {
             console.error('Erreur TTS:', event);
@@ -116,7 +148,7 @@ const useTextToSpeech = (options = {}) => {
         };
 
         synth.current.speak(utterance);
-    }, [isSupported, cancel, voices, handleEnd]); // Retiré pitch, rate, volume, voiceName des dépendances
+    }, [isSupported, cancel, voices, handleEnd]);
 
     // Nettoyage au démontage
     useEffect(() => {

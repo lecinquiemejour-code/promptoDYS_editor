@@ -4,6 +4,7 @@ import { useEelBridge } from './hooks/useEelBridge';
 import { useThemeSettings } from './hooks/useThemeSettings';
 import { useMathJax } from './hooks/useMathJax';
 import { useConfig } from './hooks/useConfig';
+import useTextToSpeech from './hooks/useTextToSpeech';
 // Removed unused imports
 // Removed PromptoDYS imports - using simple project management
 import Toolbar from './components/Toolbar';
@@ -105,6 +106,45 @@ const App = () => {
   const { config, setConfigValue, isLoading: configLoading } = useConfig();
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
 
+  // Hook Text-to-Speech
+  const {
+    isSupported: isTtsSupported,
+    isSpeaking,
+    isPaused,
+    speak,
+    pause,
+    resume,
+    cancel
+  } = useTextToSpeech({
+    voiceName: settings.voiceName,
+    rate: settings.voiceRate,
+    pitch: settings.voicePitch
+  });
+
+  // Gestionnaires TTS
+  const handleSpeak = useCallback(() => {
+    if (isPaused) {
+      resume();
+      return;
+    }
+
+    if (isSpeaking) {
+      pause();
+      return;
+    }
+
+    const selection = window.getSelection();
+    const textToRead = selection.toString().trim();
+
+    if (textToRead) {
+      speak(textToRead);
+    }
+  }, [isPaused, isSpeaking, resume, pause, speak]);
+
+  const handleStopSpeak = useCallback(() => {
+    cancel();
+  }, [cancel]);
+
   // Log du mode développeur
   useEffect(() => {
     if (!configLoading && config.developer_mode) {
@@ -173,12 +213,7 @@ const App = () => {
           saveSelection={saveSelection}
           storeBlobForUrl={storeBlobForUrl}
           getBlobFromUrl={getBlobFromUrl}
-          getBlobFromUrl={getBlobFromUrl}
           getAllBlobs={getAllBlobs}
-          // Paramètres vocaux
-          ttsVoiceName={settings.voiceName}
-          ttsRate={settings.voiceRate}
-          ttsPitch={settings.voicePitch}
         />
       </div>
 
@@ -188,6 +223,11 @@ const App = () => {
           currentFormat={currentFormat}
           content={content}
           dysSettings={settings}
+          isTtsSupported={isTtsSupported}
+          isSpeaking={isSpeaking}
+          isPaused={isPaused}
+          handleSpeak={handleSpeak}
+          handleStopSpeak={handleStopSpeak}
         />
       </div>
 

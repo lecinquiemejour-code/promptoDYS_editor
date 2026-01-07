@@ -332,6 +332,9 @@ const ThemeSettings = ({
                   </option>
                 ))}
             </select>
+            <div style={{ fontSize: '15px', lineHeight: '1.4', color: '#9ca3af', marginTop: '6px', fontStyle: 'italic' }}>
+              💡 Ajout de voix : Paramètres Windows {'>'} Heure et langue {'>'} Voix
+            </div>
           </div>
 
           {/* Vitesse de lecture */}
@@ -343,7 +346,7 @@ const ThemeSettings = ({
             <input
               type="range"
               min="0.5"
-              max="2"
+              max="4"
               step="0.1"
               value={settings.voiceRate}
               onChange={e => updateSetting('voiceRate', parseFloat(e.target.value))}
@@ -359,7 +362,7 @@ const ThemeSettings = ({
             </div>
             <input
               type="range"
-              min="0.5"
+              min="0.1"
               max="2"
               step="0.1"
               value={settings.voicePitch}
