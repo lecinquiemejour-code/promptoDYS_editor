@@ -1384,7 +1384,7 @@ const Toolbar = ({
   };
 
   return (
-    <div className="rounded-lg py-3 shadow-lg w-full" style={{ backgroundColor: 'var(--dys-bg-color)' }}>
+    <div className="rounded-lg py-3 shadow-lg w-full" style={{ backgroundColor: 'var(--dys-bg-color)', fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
       {/* Ligne de séparation */}
       <hr style={{ border: 'none', borderTop: '2px solid var(--dys-text-color)', margin: '0 0 12px 0' }} />
       {/* Ligne 1 - Format + Couleurs + Mode */}

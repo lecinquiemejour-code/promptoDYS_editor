@@ -16,13 +16,7 @@ function SettingsModal({ isOpen, onClose, config, onConfigChange }) {
         onConfigChange('developer_mode', newValue);
     };
 
-    /**
-     * Ferme le modal et sauvegarde
-     */
-    const handleSave = () => {
-        console.log('[SettingsModal] 💾 Configuration sauvegardée');
-        onClose();
-    };
+
 
     /**
      * Gère la fermeture en cliquant sur le backdrop
@@ -70,12 +64,7 @@ function SettingsModal({ isOpen, onClose, config, onConfigChange }) {
                     </div>
                 </div>
 
-                {/* Footer */}
-                <div className="settings-modal-footer">
-                    <button className="settings-save-btn" onClick={handleSave}>
-                        💾 Sauvegarder
-                    </button>
-                </div>
+
             </div>
         </div>
     );
