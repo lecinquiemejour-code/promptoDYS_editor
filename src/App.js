@@ -218,7 +218,7 @@ const App = () => {
       </div>
 
       {/* StatusBar tout en bas */}
-      <div className="fixed bottom-0 left-0 right-0 px-5 py-1 z-10" style={{ backgroundColor: 'var(--dys-bg-color)' }}>
+      <div className="fixed bottom-0 left-0 right-0 px-5 py-0 z-10" style={{ backgroundColor: 'var(--dys-bg-color)' }}>
         <StatusBar
           currentFormat={currentFormat}
           content={content}
