@@ -271,11 +271,13 @@ export const markdownToHtml = (markdown) => {
         imgTag += ` data-image-id="${idMatch[1]}"`;
       }
 
-      imgTag += ' style="max-width: 100%; height: auto; margin: 0.5em 0;" />';
-      return imgTag;
+      imgTag += ' style="max-width: 100%; height: auto; display: block;" />';
+
+      // Envelopper dans un paragraphe conteneur comme dans Toolbar.js
+      return `<p class="image-line" style="display: block; margin: 1em 0; text-align: left;">${imgTag}</p>`;
     })
     // Images sans dimensions (fallback)
-    .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" style="max-width: 100%; height: auto; margin: 0.5em 0;" />')
+    .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<p class="image-line" style="display: block; margin: 1em 0; text-align: left;"><img src="$2" alt="$1" style="max-width: 100%; height: auto; display: block;" /></p>')
 
     // Formatage gras et italique
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')

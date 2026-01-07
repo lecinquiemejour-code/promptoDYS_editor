@@ -555,6 +555,9 @@ const Editor = forwardRef(({
     console.log('📋 [DEBUG] handlePaste DÉCLENCHÉ!', { viewMode, hasEditor: !!editorRef.current });
 
     if (viewMode === 'wysiwyg' && editorRef.current) {
+      // 🖼️ APPROCHE CONSERVATRICE : On laisse le paste se faire naturellement
+      // Puis on déplace les images dans des lignes dédiées SANS modifier le texte existant
+
       // Attendre que le contenu soit collé
       setTimeout(async () => {
         console.log('🔄 Refresh forcé après coller');
@@ -564,13 +567,131 @@ const Editor = forwardRef(({
           await processImageBlobs(editorRef.current, storeBlobForUrl);
         }
 
-        console.log('✅ [handlePaste] Images traitées par processImageBlobs (Option B incluse)');
+        console.log('✅ [handlePaste] Images traitées par processImageBlobs');
+
+        // 🖼️ LOGIQUE SIMPLIFIÉE : TOUTE image collée doit être isolée sur sa propre ligne
+        // On traite TOUTES les images, pas seulement celles dans les listes/titres
+        const allImages = editorRef.current.querySelectorAll('img');
+        console.log('🖼️ [handlePaste] Images trouvées:', allImages.length);
+
+        allImages.forEach(img => {
+          // Ignorer si déjà dans un conteneur dédié .image-line
+          if (img.closest('.image-line')) {
+            console.log('🖼️ [handlePaste] Image déjà isolée, ignorée');
+            return;
+          }
+
+          // D'abord identifier l'élément à déplacer (wrapper ou image nue)
+          const wrapper = img.closest('.resizable-image');
+          const elementToMove = wrapper || img;
+
+          // Ensuite chercher le parent bloc en partant du PARENT de l'élément à déplacer
+          // (pour éviter que blockParent soit l'élément lui-même -> HierarchyRequestError)
+          let blockParent = elementToMove.parentElement;
+          const blockTags = ['P', 'DIV', 'LI', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'BLOCKQUOTE', 'SPAN'];
+
+          // Remonter jusqu'à trouver un bloc contenant texte + image
+          while (blockParent && blockParent !== editorRef.current) {
+            if (blockTags.includes(blockParent.tagName)) {
+              break;
+            }
+            blockParent = blockParent.parentNode;
+          }
+
+          // Si dans une liste (LI), remonter jusqu'à UL/OL
+          if (blockParent && blockParent.tagName === 'LI') {
+            const listParent = blockParent.closest('ul, ol');
+            if (listParent) {
+              blockParent = listParent;
+            }
+          }
+
+          console.log('🖼️ [handlePaste] Bloc parent trouvé:', blockParent?.tagName || 'aucun');
+
+          if (blockParent && blockParent !== editorRef.current) {
+            // Créer un nouveau paragraphe dédié pour l'image
+            const newP = document.createElement('p');
+            newP.className = 'image-line';
+            newP.style.cssText = 'display: block; margin: 1em 0; text-align: left; list-style: none !important;';
+
+            // 🎯 NOUVELLE STRATÉGIE DE PLACEMENT (Split Block) - COPIÉ DE TOOLBAR.JS
+            // Identifier les frères suivants AVANT de déplacer l'élément
+            const insertionNextSibling = elementToMove.nextSibling;
+
+            // DÉPLACEMENT DIRECT
+            newP.appendChild(elementToMove);
+
+            // Vérifier si le bloc parent devient vide après le déplacement
+            const parentText = blockParent.textContent.trim();
+            const parentImages = blockParent.querySelectorAll('img');
+            const isTextEmpty = parentText.replace(/[\u200B-\u200D\uFEFF]/g, '').trim() === '';
+            const isEmptyBlock = isTextEmpty && parentImages.length === 0;
+
+            console.log('🖼️ [handlePaste] Bloc parent vide après déplacement ?', isEmptyBlock, 'Text:', parentText);
+
+            if (isEmptyBlock) {
+              console.log('🖼️ [handlePaste] Bloc vide, remplacement');
+              blockParent.parentNode.replaceChild(newP, blockParent);
+            } else {
+              console.log('🖼️ [handlePaste] Bloc non-vide, SPLIT requis');
+              // SPLIT BLOCK LOGIC
+
+              // Créer la partie "Après"
+              const rightPart = blockParent.cloneNode(false);
+
+              // Déplacer les noeuds frères (qui étaient après l'image) vers rightPart
+              let sibling = insertionNextSibling;
+              while (sibling) {
+                const next = sibling.nextSibling;
+                rightPart.appendChild(sibling);
+                sibling = next;
+              }
+
+              // Insérer imgP APRÈS le blockParent (qui est maintenant la partie gauche)
+              if (blockParent.nextSibling) {
+                blockParent.parentNode.insertBefore(newP, blockParent.nextSibling);
+              } else {
+                blockParent.parentNode.appendChild(newP);
+              }
+
+              // Insérer rightPart APRÈS imgP
+              if (newP.nextSibling) {
+                newP.parentNode.insertBefore(rightPart, newP.nextSibling);
+              } else {
+                newP.parentNode.appendChild(rightPart);
+              }
+
+              // Nettoyage si rightPart est vide
+              if (rightPart.innerHTML.trim() === '') {
+                rightPart.innerHTML = '<br>';
+              }
+            }
+
+            console.log('✅ [handlePaste] Image isolée après:', blockParent.tagName);
+          }
+        });
 
         // Ajouter les poignées aux nouvelles images collées
         const newImages = editorRef.current.querySelectorAll('img:not([data-resizable])');
         newImages.forEach(img => {
           if (editorRef.current.addResizeHandlesToImage) {
             editorRef.current.addResizeHandlesToImage(img);
+          }
+        });
+
+        // 🧹 NETTOYAGE : Corriger les structures HTML invalides
+        // (p.image-line à l'intérieur de h1-h6, ou imbrications invalides)
+        const invalidImageLines = editorRef.current.querySelectorAll('h1 .image-line, h2 .image-line, h3 .image-line, h4 .image-line, h5 .image-line, h6 .image-line');
+        invalidImageLines.forEach(imageLine => {
+          console.log('🧹 [handlePaste] Correction structure invalide - image-line dans heading');
+          const heading = imageLine.closest('h1, h2, h3, h4, h5, h6');
+          if (heading && heading.parentNode) {
+            // Déplacer l'image-line APRÈS le heading
+            if (heading.nextSibling) {
+              heading.parentNode.insertBefore(imageLine, heading.nextSibling);
+            } else {
+              heading.parentNode.appendChild(imageLine);
+            }
           }
         });
 

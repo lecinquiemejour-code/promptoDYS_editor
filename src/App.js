@@ -30,7 +30,9 @@ const App = () => {
     selectedImage,
     setSelectedImage,
     handleImageClick,
-    handleEditorClick
+    handleEditorClick,
+    restoreSelection,
+    saveSelection
   } = useEditor();
 
   // Gestionnaire de blobs pour les images
@@ -166,6 +168,9 @@ const App = () => {
           onConfigModalToggle={() => setIsConfigModalOpen(true)}
           developerMode={config.developer_mode}
           ignoreSelectionChangeRef={ignoreSelectionChangeRef}
+          selectedImage={selectedImage}
+          restoreSelection={restoreSelection}
+          saveSelection={saveSelection}
           storeBlobForUrl={storeBlobForUrl}
           getBlobFromUrl={getBlobFromUrl}
           getAllBlobs={getAllBlobs}

@@ -15,9 +15,12 @@ const Toolbar = ({
   onConfigModalToggle,
   developerMode = false,
   ignoreSelectionChangeRef,
+  selectedImage,
   storeBlobForUrl,
   getBlobFromUrl,
-  getAllBlobs
+  getAllBlobs,
+  restoreSelection,
+  saveSelection
 }) => {
   // IndexedDB supprimé - éditeur volatil uniquement
 
@@ -51,6 +54,18 @@ const Toolbar = ({
     color: 'var(--dys-text-color)',
     border: '1px solid var(--dys-text-color)'
   };
+
+  // 🖼️ Style désactivé (grisé) quand image sélectionnée
+  const buttonDisabledStyle = {
+    backgroundColor: '#e0e0e0',
+    color: '#999',
+    border: '1px solid #ccc',
+    cursor: 'not-allowed',
+    opacity: 0.6
+  };
+
+  // Vérifier si une image est sélectionnée
+  const isImageSelected = !!selectedImage;
 
   // Vérifier le support File System Access API
   const isFileSystemAccessSupported = () => {
@@ -925,12 +940,64 @@ const Toolbar = ({
     { name: 'Jaune', value: '#ffff00' },
   ];
 
+  // ============================================
+  // PROTECTION IMAGES - Helper pour détecter si sélection sur image
+  // Version simplifiée : ne bloque que si directement sur image ou dans .image-line
+  // ============================================
+  const isSelectionOnImage = () => {
+    // Si une image est explicitement sélectionnée via clic, bloquer
+    if (selectedImage) {
+      console.log('🖼️ [isSelectionOnImage] Image sélectionnée via clic');
+      return true;
+    }
+
+    const selection = window.getSelection();
+    if (!selection.rangeCount) return false;
+
+    const range = selection.getRangeAt(0);
+    let element = range.commonAncestorContainer;
+
+    // Si c'est un nœud texte, prendre le parent
+    if (element.nodeType === Node.TEXT_NODE) {
+      element = element.parentElement;
+    }
+
+    // 1. Vérifier si l'élément est directement une image
+    if (element?.tagName === 'IMG') {
+      console.log('🖼️ [isSelectionOnImage] Image détectée directement');
+      return true;
+    }
+
+    // 2. Vérifier si on est dans un conteneur d'image dédié (.image-line ou .image-container)
+    if (element?.closest?.('.image-line') || element?.closest?.('.image-container')) {
+      console.log('🖼️ [isSelectionOnImage] Conteneur image-line/container détecté');
+      return true;
+    }
+
+    // 3. Vérifier si le parent DIRECT est une image (cas rare)
+    if (element?.parentElement?.tagName === 'IMG') {
+      console.log('🖼️ [isSelectionOnImage] Parent direct est une image');
+      return true;
+    }
+
+    // NE PAS bloquer juste parce qu'un paragraphe contient une image quelque part
+    // L'utilisateur peut éditer du texte dans le même paragraphe qu'une image
+
+    return false;
+  };
 
   const execCommand = (command, value = null) => {
     console.log('🚀 EXECCOMMAND START:', command, 'currentFormat AVANT:', currentFormat);
     console.log('🔒 ignoreSelectionChangeRef AVANT activation:', ignoreSelectionChangeRef.current);
 
     if (viewMode !== 'wysiwyg' || !editorRef.current) return;
+
+    // 🖼️ PROTECTION IMAGES - Bloquer le formatage si sélection sur image
+    // (sauf foreColor qui est autorisé car ne modifie pas la structure)
+    if (isSelectionOnImage() && command !== 'foreColor') {
+      console.log('🚫 [execCommand] Formatage bloqué - sélection sur image');
+      return;
+    }
 
     // 🔥 PROTECTION ACTIVÉE AVANT TOUT (même focus)
     ignoreSelectionChangeRef.current = true;
@@ -1095,6 +1162,12 @@ const Toolbar = ({
   const handleHeading = (level) => {
     if (viewMode !== 'wysiwyg' || !editorRef.current) return;
 
+    // 🖼️ PROTECTION IMAGES - Bloquer les titres sur les images
+    if (isSelectionOnImage()) {
+      console.log('🚫 [handleHeading] Titre bloqué - sélection sur image');
+      return;
+    }
+
     editorRef.current.focus();
 
     // Supprimer les listes existantes avant d'appliquer le titre
@@ -1183,6 +1256,12 @@ const Toolbar = ({
   const handleList = (type) => {
     if (viewMode !== 'wysiwyg' || !editorRef.current) return;
 
+    // 🖼️ PROTECTION IMAGES - Bloquer les listes sur les images
+    if (isSelectionOnImage()) {
+      console.log('🚫 [handleList] Liste bloquée - sélection sur image');
+      return;
+    }
+
     editorRef.current.focus();
 
     // CAS 1: Toggle OFF - Si on clique sur le même type déjà actif
@@ -1270,6 +1349,12 @@ const Toolbar = ({
 
     // Insérer l'image directement dans l'éditeur
     if (viewMode === 'wysiwyg' && editorRef.current) {
+      // 🔄 Restaurer la sélection perdue lors de l'ouverture de la boîte de dialogue
+      if (restoreSelection) {
+        console.log('🔄 [handleImageUpload] Restauration de la sélection...');
+        restoreSelection();
+      }
+
       try {
         console.log('💾 [handleImageUpload] Sauvegarde en IndexedDB...');
 
@@ -1281,18 +1366,156 @@ const Toolbar = ({
         const tempObjectUrl = URL.createObjectURL(file);
         console.log('🔗 [handleImageUpload] Object URL temporaire créée:', tempObjectUrl);
 
-        // Insérer avec data-image-id ET Object URL temporaire
+        // 🖼️ APPROCHE CORRIGÉE : 
+        // 1. SAUVEGARDER le bloc parent AVANT d'insérer
+        // 2. Insérer l'image
+        // 3. Déplacer l'image APRÈS le bloc sauvegardé
         editorRef.current.focus();
-        const imgHtml = `<img src="${tempObjectUrl}" data-image-id="${imageId}" width="300px" style="height: auto; margin: 0.5em 0;" alt="${file.name}" />`;
 
-        console.log('📝 [handleImageUpload] Insertion HTML avec imageId:', {
-          imageId,
-          fileName: file.name,
-          tempUrl: tempObjectUrl,
-          html: imgHtml
+        // Sauvegarder le bloc parent AVANT l'insertion
+        const selection = window.getSelection();
+        let savedBlockParent = null;
+        if (selection.rangeCount > 0) {
+          let element = selection.getRangeAt(0).commonAncestorContainer;
+          if (element.nodeType === Node.TEXT_NODE) element = element.parentElement;
+
+          const blockTags = ['P', 'DIV', 'LI', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'UL', 'OL', 'BLOCKQUOTE'];
+          let blockParent = element;
+          while (blockParent && blockParent !== editorRef.current) {
+            if (blockTags.includes(blockParent.tagName)) {
+              savedBlockParent = blockParent;
+              break;
+            }
+            blockParent = blockParent.parentNode;
+          }
+
+          // Si dans une liste, remonter jusqu'à UL/OL
+          if (savedBlockParent && savedBlockParent.tagName === 'LI') {
+            const listParent = savedBlockParent.closest('ul, ol');
+            if (listParent) savedBlockParent = listParent;
+          }
+        }
+
+        console.log('🖼️ [handleImageUpload] Bloc parent sauvegardé AVANT insertion:', savedBlockParent?.tagName || 'aucun');
+
+        // Créer et insérer l'image
+        const imgHtml = `<img src="${tempObjectUrl}" data-image-id="${imageId}" width="300px" style="height: auto; max-width: 100%; display: block;" alt="${file.name}" class="newly-inserted" />`;
+        document.execCommand('insertHTML', false, imgHtml);
+
+        console.log('🖼️ [handleImageUpload] Image insérée, post-traitement...');
+
+        // Post-traitement : isoler l'image sur sa propre ligne
+        const newlyInserted = editorRef.current.querySelector('img.newly-inserted');
+        if (newlyInserted) {
+          console.log('🖼️ [handleImageUpload] Image trouvée, début isolation...');
+
+          // 1. Identifier le VRAI parent et la position avant tout déplacement
+          const insertionParent = newlyInserted.parentNode;
+          const insertionNextSibling = newlyInserted.nextSibling;
+
+          newlyInserted.classList.remove('newly-inserted');
+
+          // 2. Créer le conteneur d'image (p.image-line)
+          const imgP = document.createElement('p');
+          imgP.className = 'image-line';
+          imgP.style.cssText = 'display: block; margin: 1em 0; text-align: left;';
+
+          // 3. Déplacer l'image dans son conteneur
+          imgP.appendChild(newlyInserted);
+
+          // 4. Placer le conteneur dans le DOM (Split Block Logic)
+          if (insertionParent === editorRef.current) {
+            // Cas simple : racine éditeur
+            if (insertionNextSibling) {
+              editorRef.current.insertBefore(imgP, insertionNextSibling);
+            } else {
+              editorRef.current.appendChild(imgP);
+            }
+          } else if (insertionParent) {
+            // Cas complexe : l'image est dans un bloc (P, DIV, etc.)
+            const parentContent = insertionParent.textContent.trim();
+            const parentImagesCount = insertionParent.querySelectorAll('img').length;
+            const isTextEmpty = parentContent.replace(/[\u200B-\u200D\uFEFF]/g, '').trim() === '';
+
+            // Si le bloc ne contenait QUE cette image (et du vide), on le remplace
+            // Note: imgP contient maintenant l'image, donc parentImagesCount devrait être 0 si c'était la seule
+            if (isTextEmpty && parentImagesCount === 0) {
+              console.log('🖼️ [handleImageUpload] Bloc parent vide, remplacement');
+              insertionParent.parentNode.replaceChild(imgP, insertionParent);
+            } else {
+              console.log('🖼️ [handleImageUpload] Bloc parent non-vide, SPLIT requis');
+              // On doit couper le bloc en deux : Avant | Image | Après
+
+              // Créer la partie "Après" (même type que le parent)
+              const rightPart = insertionParent.cloneNode(false); // Clone superficiel (tag + attributs)
+
+              // Déplacer tous les noeuds qui étaient APRÈS l'image vers rightPart
+              let sibling = insertionNextSibling;
+              while (sibling) {
+                const next = sibling.nextSibling;
+                rightPart.appendChild(sibling); // Déplace le noeud
+                sibling = next;
+              }
+
+              // Insérer dans l'ordre : Parent(Gauche) -> imgP -> RightPart
+              // Parent est déjà là.
+
+              if (insertionParent.nextSibling) {
+                insertionParent.parentNode.insertBefore(imgP, insertionParent.nextSibling);
+              } else {
+                insertionParent.parentNode.appendChild(imgP);
+              }
+
+              // Insérer rightPart après imgP (si rightPart n'est pas vide)
+              // On insère même si vide pour garder la structure (ex: curseur après)
+              if (imgP.nextSibling) {
+                imgP.parentNode.insertBefore(rightPart, imgP.nextSibling);
+              } else {
+                imgP.parentNode.appendChild(rightPart);
+              }
+
+              // Nettoyage éventuel si rightPart est vide (sauf <br>)
+              if (rightPart.innerHTML.trim() === '') {
+                rightPart.innerHTML = '<br>';
+              }
+            }
+          }
+
+          // Ajouter un paragraphe vide après pour continuer à écrire
+          const newP = document.createElement('p');
+          newP.innerHTML = '<br>';
+          if (imgP.nextSibling) {
+            imgP.parentNode.insertBefore(newP, imgP.nextSibling);
+          } else {
+            imgP.parentNode.appendChild(newP);
+          }
+
+          // Placer le curseur dans le nouveau paragraphe
+          const selection = window.getSelection();
+          const newRange = document.createRange();
+          newRange.setStart(newP, 0);
+          newRange.collapse(true);
+          selection.removeAllRanges();
+          selection.addRange(newRange);
+
+          console.log('✅ [handleImageUpload] Image isolée sur sa propre ligne');
+        }
+
+        // 🧹 NETTOYAGE : Corriger les structures HTML invalides
+        const invalidImageLines = editorRef.current.querySelectorAll('h1 .image-line, h2 .image-line, h3 .image-line, h4 .image-line, h5 .image-line, h6 .image-line');
+        invalidImageLines.forEach(imageLine => {
+          console.log('🧹 [handleImageUpload] Correction structure invalide');
+          const heading = imageLine.closest('h1, h2, h3, h4, h5, h6');
+          if (heading && heading.parentNode) {
+            if (heading.nextSibling) {
+              heading.parentNode.insertBefore(imageLine, heading.nextSibling);
+            } else {
+              heading.parentNode.appendChild(imageLine);
+            }
+          }
         });
 
-        document.execCommand('insertHTML', false, imgHtml);
+        console.log('📝 [handleImageUpload] Insertion complète, imageId:', imageId);
 
         // Forcer re-rendu immédiat pour styles/poignées images ET réhydratation
         setTimeout(async () => {
@@ -1395,32 +1618,32 @@ const Toolbar = ({
           <button
             onClick={() => execCommand('normal')}
             className="px-2 py-0.5 text-xs rounded"
-            style={!currentFormat.bold && !currentFormat.italic && !currentFormat.underline && !currentFormat.heading && !currentFormat.list ? buttonActiveStyle : buttonInactiveStyle}
-            disabled={viewMode !== 'wysiwyg'}
+            style={isImageSelected ? buttonDisabledStyle : (!currentFormat.bold && !currentFormat.italic && !currentFormat.underline && !currentFormat.heading && !currentFormat.list ? buttonActiveStyle : buttonInactiveStyle)}
+            disabled={isImageSelected || viewMode !== 'wysiwyg'}
           >
             Normal
           </button>
           <button
             onClick={() => execCommand('bold')}
             className="px-2 py-0.5 text-xs rounded font-bold"
-            style={currentFormat.bold ? buttonActiveStyle : buttonInactiveStyle}
-            disabled={viewMode !== 'wysiwyg'}
+            style={isImageSelected ? buttonDisabledStyle : (currentFormat.bold ? buttonActiveStyle : buttonInactiveStyle)}
+            disabled={isImageSelected || viewMode !== 'wysiwyg'}
           >
             Gras
           </button>
           <button
             onClick={() => execCommand('italic')}
             className="px-2 py-0.5 text-xs rounded italic"
-            style={currentFormat.italic ? buttonActiveStyle : buttonInactiveStyle}
-            disabled={viewMode !== 'wysiwyg'}
+            style={isImageSelected ? buttonDisabledStyle : (currentFormat.italic ? buttonActiveStyle : buttonInactiveStyle)}
+            disabled={isImageSelected || viewMode !== 'wysiwyg'}
           >
             Italique
           </button>
           <button
             onClick={() => execCommand('underline')}
             className="px-2 py-0.5 text-xs rounded underline"
-            style={currentFormat.underline ? buttonActiveStyle : buttonInactiveStyle}
-            disabled={viewMode !== 'wysiwyg'}
+            style={isImageSelected ? buttonDisabledStyle : (currentFormat.underline ? buttonActiveStyle : buttonInactiveStyle)}
+            disabled={isImageSelected || viewMode !== 'wysiwyg'}
           >
             Souligné
           </button>
@@ -1544,32 +1767,32 @@ const Toolbar = ({
           <button
             onClick={() => execCommand('normal')}
             className="px-2 py-0.5 text-xs rounded"
-            style={!currentFormat.heading && !currentFormat.list ? buttonActiveStyle : buttonInactiveStyle}
-            disabled={viewMode !== 'wysiwyg'}
+            style={isImageSelected ? buttonDisabledStyle : (!currentFormat.heading && !currentFormat.list ? buttonActiveStyle : buttonInactiveStyle)}
+            disabled={isImageSelected || viewMode !== 'wysiwyg'}
           >
             Texte
           </button>
           <button
             onClick={() => handleHeading('h3')}
             className="px-2 py-0.5 text-xs rounded"
-            style={currentFormat.heading === 'h3' ? buttonActiveStyle : buttonInactiveStyle}
-            disabled={viewMode !== 'wysiwyg'}
+            style={isImageSelected ? buttonDisabledStyle : (currentFormat.heading === 'h3' ? buttonActiveStyle : buttonInactiveStyle)}
+            disabled={isImageSelected || viewMode !== 'wysiwyg'}
           >
             Titre 1
           </button>
           <button
             onClick={() => handleHeading('h2')}
             className="px-2 py-0.5 text-xs rounded"
-            style={currentFormat.heading === 'h2' ? buttonActiveStyle : buttonInactiveStyle}
-            disabled={viewMode !== 'wysiwyg'}
+            style={isImageSelected ? buttonDisabledStyle : (currentFormat.heading === 'h2' ? buttonActiveStyle : buttonInactiveStyle)}
+            disabled={isImageSelected || viewMode !== 'wysiwyg'}
           >
             Titre 2
           </button>
           <button
             onClick={() => handleHeading('h1')}
             className="px-2 py-0.5 text-xs rounded"
-            style={currentFormat.heading === 'h1' ? buttonActiveStyle : buttonInactiveStyle}
-            disabled={viewMode !== 'wysiwyg'}
+            style={isImageSelected ? buttonDisabledStyle : (currentFormat.heading === 'h1' ? buttonActiveStyle : buttonInactiveStyle)}
+            disabled={isImageSelected || viewMode !== 'wysiwyg'}
           >
             Titre 3
           </button>
@@ -1581,8 +1804,8 @@ const Toolbar = ({
           <button
             onClick={handleRemoveList}
             className="px-2 py-0.5 text-xs rounded"
-            style={buttonInactiveStyle}
-            disabled={viewMode !== 'wysiwyg'}
+            style={isImageSelected ? buttonDisabledStyle : buttonInactiveStyle}
+            disabled={isImageSelected || viewMode !== 'wysiwyg'}
             title="Supprimer la liste"
           >
             ✗
@@ -1590,24 +1813,24 @@ const Toolbar = ({
           <button
             onClick={() => handleList('bullet')}
             className="px-2 py-0.5 text-xs rounded"
-            style={currentFormat.list === 'bullet' ? buttonActiveStyle : buttonInactiveStyle}
-            disabled={viewMode !== 'wysiwyg'}
+            style={isImageSelected ? buttonDisabledStyle : (currentFormat.list === 'bullet' ? buttonActiveStyle : buttonInactiveStyle)}
+            disabled={isImageSelected || viewMode !== 'wysiwyg'}
           >
             • Puces
           </button>
           <button
             onClick={() => handleList('number')}
             className="px-2 py-0.5 text-xs rounded"
-            style={currentFormat.list === 'number' ? buttonActiveStyle : buttonInactiveStyle}
-            disabled={viewMode !== 'wysiwyg'}
+            style={isImageSelected ? buttonDisabledStyle : (currentFormat.list === 'number' ? buttonActiveStyle : buttonInactiveStyle)}
+            disabled={isImageSelected || viewMode !== 'wysiwyg'}
           >
             1. Numéros
           </button>
           <button
             onClick={() => handleList('letter')}
             className="px-2 py-0.5 text-xs rounded"
-            style={currentFormat.list === 'letter' ? buttonActiveStyle : buttonInactiveStyle}
-            disabled={viewMode !== 'wysiwyg'}
+            style={isImageSelected ? buttonDisabledStyle : (currentFormat.list === 'letter' ? buttonActiveStyle : buttonInactiveStyle)}
+            disabled={isImageSelected || viewMode !== 'wysiwyg'}
           >
             a. Lettres
           </button>
@@ -1644,7 +1867,13 @@ const Toolbar = ({
           </div>
           <div className="relative group">
             <button
-              onClick={() => document.getElementById('image-input').click()}
+              onClick={() => {
+                if (saveSelection) {
+                  console.log('💾 [Toolbar] Sauvegarde explicite de la sélection avant upload');
+                  saveSelection();
+                }
+                document.getElementById('image-input').click();
+              }}
               className="px-3 py-1 text-sm rounded border border-gray-400 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-500 font-medium"
               disabled={viewMode !== 'wysiwyg'}
             >
