@@ -41,7 +41,9 @@ const ThemeSettings = ({
       height: '100%',
       width: '100%',
       overflowY: 'auto',
-      border: '2px solid #e5e7eb'
+      border: '2px solid #e5e7eb',
+      fontSize: '14px',
+      lineHeight: '1.5'
     },
     dragHandle: {
       backgroundColor: '#f3f4f6',
@@ -309,6 +311,23 @@ const ThemeSettings = ({
           </div>
         </div>
 
+        {/* Section Espacement entre mots */}
+        <div style={styles.section}>
+          <div style={styles.sectionTitle}>Espacement entre les mots</div>
+          <div style={styles.sliderContainer}>
+            <input
+              type="range"
+              min="0"
+              max="10"
+              step="0.5"
+              value={settings.wordSpacing}
+              onChange={e => updateSetting('wordSpacing', parseFloat(e.target.value))}
+              style={styles.slider}
+            />
+            <div style={styles.sliderValue}>{settings.wordSpacing}px</div>
+          </div>
+        </div>
+
         {/* Section Paramètres de Lecture Vocale */}
         <div style={styles.section}>
           <div style={{ ...styles.sectionTitle, marginTop: '8px', borderTop: '1px solid #e5e7eb', paddingTop: '4px' }}>
@@ -332,9 +351,6 @@ const ThemeSettings = ({
                   </option>
                 ))}
             </select>
-            <div style={{ fontSize: '15px', lineHeight: '1.4', color: '#9ca3af', marginTop: '6px', fontStyle: 'italic' }}>
-              💡 Ajout de voix : Paramètres Windows {'>'} Heure et langue {'>'} Voix
-            </div>
           </div>
 
           {/* Vitesse de lecture */}

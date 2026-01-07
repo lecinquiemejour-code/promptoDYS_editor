@@ -1072,6 +1072,7 @@ const Editor = forwardRef(({
             .resize-handle.se { bottom: -2px; right: -2px; cursor: se-resize; }
           `}</style>
           <div
+            className="editor-content"
             ref={(el) => { editorRef.current = el; }}
             contentEditable="true"
             suppressContentEditableWarning={true}

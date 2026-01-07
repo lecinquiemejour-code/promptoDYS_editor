@@ -9,6 +9,7 @@ export const useThemeSettings = () => {
     fontSize: 14,               // Taille minimale recommandée
     fontSize: 14,               // Taille minimale recommandée
     lineHeight: 1.5,            // Interlignage optimal pour la lisibilité
+    wordSpacing: 0,             // Espacement entre les mots (0-10px)
     // Paramètres vocaux
     voiceName: null,            // Nom de la voix système préférée
     voiceRate: 1,               // Vitesse de lecture (0.5 - 2)
@@ -74,6 +75,7 @@ export const useThemeSettings = () => {
     root.style.setProperty('--dys-text-color', settings.textColor);
     root.style.setProperty('--dys-font-size', `${settings.fontSize}px`);
     root.style.setProperty('--dys-line-height', settings.lineHeight.toString());
+    root.style.setProperty('--dys-word-spacing', `${settings.wordSpacing}px`);
 
     // Gestion des polices
     let fontStack = '';
