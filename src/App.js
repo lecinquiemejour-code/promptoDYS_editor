@@ -173,7 +173,12 @@ const App = () => {
           saveSelection={saveSelection}
           storeBlobForUrl={storeBlobForUrl}
           getBlobFromUrl={getBlobFromUrl}
+          getBlobFromUrl={getBlobFromUrl}
           getAllBlobs={getAllBlobs}
+          // Paramètres vocaux
+          ttsVoiceName={settings.voiceName}
+          ttsRate={settings.voiceRate}
+          ttsPitch={settings.voicePitch}
         />
       </div>
 

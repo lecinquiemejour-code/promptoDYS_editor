@@ -1,4 +1,5 @@
 import React from 'react';
+import useTextToSpeech from '../hooks/useTextToSpeech';
 
 const ThemeSettings = ({
   settings,
@@ -12,6 +13,8 @@ const ThemeSettings = ({
   applyPresetTheme,
   toggleSettings
 }) => {
+  // Récupérer les voix disponibles via le hook TTS
+  const { voices } = useTextToSpeech();
 
   if (!isSettingsOpen) return null;
 
@@ -303,6 +306,66 @@ const ThemeSettings = ({
               style={styles.slider}
             />
             <div style={styles.sliderValue}>{settings.lineHeight.toFixed(1)}</div>
+          </div>
+        </div>
+
+        {/* Section Paramètres de Lecture Vocale */}
+        <div style={styles.section}>
+          <div style={{ ...styles.sectionTitle, marginTop: '8px', borderTop: '1px solid #e5e7eb', paddingTop: '4px' }}>
+            🗣️ Lecture Vocale
+          </div>
+
+          {/* Sélection de la voix */}
+          <div style={{ marginBottom: '4px' }}>
+            <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '2px' }}>Voix</div>
+            <select
+              style={styles.select}
+              value={settings.voiceName || ''}
+              onChange={e => updateSetting('voiceName', e.target.value)}
+            >
+              <option value="">Par défaut (Automatique)</option>
+              {voices
+                .filter(v => v.lang.startsWith('fr') || v.lang.startsWith('en')) // Filtrer pour FR et EN principalement
+                .map(voice => (
+                  <option key={voice.name} value={voice.name}>
+                    {voice.name} ({voice.lang})
+                  </option>
+                ))}
+            </select>
+          </div>
+
+          {/* Vitesse de lecture */}
+          <div style={{ marginBottom: '4px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#6b7280' }}>
+              <span>Vitesse</span>
+              <span>x{settings.voiceRate}</span>
+            </div>
+            <input
+              type="range"
+              min="0.5"
+              max="2"
+              step="0.1"
+              value={settings.voiceRate}
+              onChange={e => updateSetting('voiceRate', parseFloat(e.target.value))}
+              style={{ ...styles.slider, width: '100%' }}
+            />
+          </div>
+
+          {/* Tonalité */}
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#6b7280' }}>
+              <span>Tonalité</span>
+              <span>{settings.voicePitch}</span>
+            </div>
+            <input
+              type="range"
+              min="0.5"
+              max="2"
+              step="0.1"
+              value={settings.voicePitch}
+              onChange={e => updateSetting('voicePitch', parseFloat(e.target.value))}
+              style={{ ...styles.slider, width: '100%' }}
+            />
           </div>
         </div>
 

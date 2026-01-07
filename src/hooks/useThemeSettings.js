@@ -7,7 +7,12 @@ export const useThemeSettings = () => {
     textColor: '#1e3a8a',       // Bleu marine
     fontFamily: 'Verdana',      // Police recommandée pour l'accessibilité
     fontSize: 14,               // Taille minimale recommandée
-    lineHeight: 1.5             // Interlignage optimal pour la lisibilité
+    fontSize: 14,               // Taille minimale recommandée
+    lineHeight: 1.5,            // Interlignage optimal pour la lisibilité
+    // Paramètres vocaux
+    voiceName: null,            // Nom de la voix système préférée
+    voiceRate: 1,               // Vitesse de lecture (0.5 - 2)
+    voicePitch: 1               // Tonalité (0 - 2)
   };
 
   // Options disponibles
@@ -63,13 +68,13 @@ export const useThemeSettings = () => {
   // Application du thème au document
   const applyThemeToDocument = () => {
     const root = document.documentElement;
-    
+
     // Variables CSS personnalisées
     root.style.setProperty('--dys-bg-color', settings.backgroundColor);
     root.style.setProperty('--dys-text-color', settings.textColor);
     root.style.setProperty('--dys-font-size', `${settings.fontSize}px`);
     root.style.setProperty('--dys-line-height', settings.lineHeight.toString());
-    
+
     // Gestion des polices
     let fontStack = '';
     if (settings.fontFamily === 'system') {

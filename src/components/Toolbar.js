@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { markdownToHtml, htmlToMarkdown } from '../utils/markdownConverter';
 import { saveImage, loadImage } from '../utils/imageStore';
+import useTextToSpeech from '../hooks/useTextToSpeech';
 // Removed PromptoDYS imports - using simplified project management
 
 const Toolbar = ({
@@ -20,7 +21,11 @@ const Toolbar = ({
   getBlobFromUrl,
   getAllBlobs,
   restoreSelection,
-  saveSelection
+  saveSelection,
+  // Props vocales
+  ttsVoiceName,
+  ttsRate = 1,
+  ttsPitch = 1
 }) => {
   // IndexedDB supprimé - éditeur volatil uniquement
 
@@ -40,6 +45,51 @@ const Toolbar = ({
   // États pour la modal d'import HTML
   const [showImportHtmlModal, setShowImportHtmlModal] = useState(false);
   const [importedFileName, setImportedFileName] = useState('');
+
+  // 🗣️ Hook Text-to-Speech connecté aux réglages
+  const {
+    isSupported: isTtsSupported,
+    isSpeaking,
+    isPaused,
+    speak,
+    pause,
+    resume,
+    cancel
+  } = useTextToSpeech({
+    voiceName: ttsVoiceName,
+    rate: ttsRate,
+    pitch: ttsPitch
+  });
+
+  // Gestion de la lecture TTS
+  const handleSpeak = () => {
+    // Si en pause, reprondre
+    if (isPaused) {
+      resume();
+      return;
+    }
+
+    // Si déjà en lecture, mettre en pause
+    if (isSpeaking) {
+      pause();
+      return;
+    }
+
+    // Sinon, récupérer le texte sélectionné et lire
+    const selection = window.getSelection();
+    const textToRead = selection.toString().trim();
+
+    if (textToRead) {
+      speak(textToRead);
+    } else {
+      // Optionnel : Message si rien n'est sélectionné
+      console.log('Aucun texte sélectionné pour la lecture');
+    }
+  };
+
+  const handleStopSpeak = () => {
+    cancel();
+  };
 
   // Styles pour les boutons de la toolbar (compatibles dark mode)
   const buttonActiveStyle = {
@@ -1835,6 +1885,30 @@ const Toolbar = ({
             a. Lettres
           </button>
         </div>
+
+        {/* 🗣️ Contrôles Text-to-Speech */}
+        {isTtsSupported && (
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={handleSpeak}
+              className={`px-2 py-0.5 text-xs rounded ${isSpeaking || isPaused ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'}`}
+              title={isSpeaking ? (isPaused ? "Reprendre la lecture" : "Mettre en pause") : "Lire le texte sélectionné"}
+              disabled={!isSpeaking && !isPaused && typeof window !== 'undefined' && !window.getSelection().toString()}
+            >
+              {isSpeaking && !isPaused ? '⏸️' : '🔊'}
+            </button>
+
+            {(isSpeaking || isPaused) && (
+              <button
+                onClick={handleStopSpeak}
+                className="px-2 py-0.5 text-xs rounded bg-gray-200 text-gray-700"
+                title="Arrêter la lecture"
+              >
+                ⏹️
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Boutons Undo/Redo */}
         <div className="flex items-center space-x-2">
