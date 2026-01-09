@@ -141,3 +141,35 @@ select option:disabled {
   color: #9ca3af !important;
   background-color: #f3f4f6 !important;
 }
+
+/* Sélection des images et formules mathématiques */
+.image-selected {
+  outline: 3px solid #3b82f6 !important;
+  outline-offset: 2px;
+}
+
+.math-selected {
+  outline: 3px solid #3b82f6 !important;
+  /* Bleu identique aux images */
+  outline-offset: 2px;
+  display: inline-block !important;
+}
+
+/* Option 1: Masquer le surlignage bleu natif pour garder uniquement nos cadres */
+.image-selected::selection {
+  background: transparent !important;
+}
+
+.math-selected::selection,
+.math-selected *::selection {
+  background: transparent !important;
+}
+
+mjx-container[data-tex] {
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+
+mjx-container[data-tex]:hover {
+  background-color: rgba(16, 185, 129, 0.1);
+}

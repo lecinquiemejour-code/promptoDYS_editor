@@ -31,6 +31,9 @@ const App = () => {
     selectedImage,
     setSelectedImage,
     handleImageClick,
+    selectedMath,
+    setSelectedMath,
+    handleMathClick,
     handleEditorClick,
     restoreSelection,
     saveSelection
@@ -194,6 +197,9 @@ const App = () => {
             currentFormat={currentFormat}
             selectedImage={selectedImage}
             onImageClick={handleImageClick}
+            selectedMath={selectedMath}
+            onMathClick={handleMathClick}
+            setSelectedMath={setSelectedMath}
             onEditorClick={handleEditorClick}
             onDeleteSelectedImage={null}
             ignoreSelectionChangeRef={ignoreSelectionChangeRef}
@@ -219,6 +225,7 @@ const App = () => {
           developerMode={config.developer_mode}
           ignoreSelectionChangeRef={ignoreSelectionChangeRef}
           selectedImage={selectedImage}
+          selectedMath={selectedMath}
           restoreSelection={restoreSelection}
           saveSelection={saveSelection}
           storeBlobForUrl={storeBlobForUrl}

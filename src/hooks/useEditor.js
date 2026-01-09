@@ -80,8 +80,9 @@ export const useEditor = () => {
     };
   });
 
-  // État pour gérer l'image sélectionnée
+  // État pour gérer l'image et la formule mathématique sélectionnées
   const [selectedImage, setSelectedImage] = useState(null);
+  const [selectedMath, setSelectedMath] = useState(null);
 
   // Mémoriser le dernier formatage appliqué pour les débuts de ligne
   const lastAppliedFormatRef = useRef(null);
@@ -311,20 +312,64 @@ export const useEditor = () => {
   const handleImageClick = useCallback((imageElement) => {
     if (viewMode === 'wysiwyg') {
       setSelectedImage(imageElement);
-      // Déselectionner le texte pour éviter les conflits
-      window.getSelection().removeAllRanges();
+      setSelectedMath(null); // Désélectionner les maths
+
+      // OPTION 1: Forcer la sélection native pour le navigateur
+      try {
+        const range = document.createRange();
+        range.selectNode(imageElement);
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+        console.log('✅ Sélection native forcée pour l\'image');
+      } catch (err) {
+        console.warn('⚠️ Échec de la sélection native image:', err);
+      }
     }
   }, [viewMode]);
 
-  // Gestionnaire pour désélectionner l'image si clic ailleurs
-  const handleEditorClick = useCallback((e) => {
-    if (viewMode === 'wysiwyg' && selectedImage) {
-      // Si le clic n'est pas sur l'image sélectionnée, la désélectionner
-      if (e.target !== selectedImage && !selectedImage.contains(e.target)) {
-        setSelectedImage(null);
+  // Gestionnaire pour sélectionner une formule mathématique
+  const handleMathClick = useCallback((mathElement) => {
+    if (viewMode === 'wysiwyg') {
+      console.log('🎯 Formule mathématique sélectionnée:', mathElement);
+      setSelectedMath(mathElement);
+      setSelectedImage(null); // Désélectionner les images
+
+      // OPTION 1: Forcer la sélection native pour le navigateur
+      try {
+        const range = document.createRange();
+        range.selectNode(mathElement);
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+        console.log('✅ Sélection native forcée pour le math');
+      } catch (err) {
+        console.warn('⚠️ Échec de la sélection native math:', err);
       }
     }
-  }, [viewMode, selectedImage]);
+  }, [viewMode]);
+
+  // Gestionnaire pour désélectionner si clic ailleurs
+  const handleEditorClick = useCallback((e) => {
+    if (viewMode === 'wysiwyg') {
+      let selectionCleared = false;
+
+      // Désélectionner l'image si clic dehors
+      if (selectedImage && e.target !== selectedImage && !selectedImage.contains(e.target)) {
+        setSelectedImage(null);
+        selectionCleared = true;
+      }
+      // Désélectionner le math si clic dehors
+      if (selectedMath && e.target !== selectedMath && !selectedMath.contains(e.target)) {
+        setSelectedMath(null);
+        selectionCleared = true;
+      }
+
+      if (selectionCleared) {
+        window.getSelection().removeAllRanges();
+      }
+    }
+  }, [viewMode, selectedImage, selectedMath]);
 
 
   return {
@@ -345,10 +390,13 @@ export const useEditor = () => {
     updateCurrentFormat,
     saveAppliedFormat,
     ignoreSelectionChangeRef,
-    // Gestion de sélection d'images
+    // Gestion de sélection
     selectedImage,
     setSelectedImage,
     handleImageClick,
+    selectedMath,
+    setSelectedMath,
+    handleMathClick,
     handleEditorClick
   };
 };

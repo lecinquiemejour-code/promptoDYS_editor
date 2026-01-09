@@ -17,7 +17,10 @@ const Editor = forwardRef(({
   onDeleteSelectedImage,
   onSelectionChange,
   storeBlobForUrl,
-  editorRef
+  editorRef,
+  selectedMath,
+  onMathClick,
+  setSelectedMath
 }, ref) => {
 
 
@@ -542,9 +545,51 @@ const Editor = forwardRef(({
           // Copier aussi le src comme texte de fallback
           e.clipboardData.setData('text/plain', selectedImage.src);
           e.preventDefault();
+
+          // Si c'est une action "Couper", on supprime l'image
+          if (e.type === 'cut') {
+            const wrapper = selectedImage.closest('.resizable-image');
+            const elementToRemove = wrapper || selectedImage;
+            const parent = elementToRemove.parentElement;
+            elementToRemove.remove();
+
+            // Nettoyer le parent si c'était une image-line devenue vide
+            if (parent && parent.classList.contains('image-line') && parent.innerHTML.trim() === '') {
+              parent.remove();
+            }
+
+            if (onImageClick) onImageClick(null);
+            if (onInput) onInput({ target: { innerHTML: editorRef.current.innerHTML } });
+            console.log('✂️ Image coupée (supprimée)');
+          }
           return;
         } catch (error) {
           console.warn('Erreur copie image:', error);
+        }
+      }
+
+      // Priorité 1.5: Si une formule mathématique est sélectionnée, copier le TeX
+      if (selectedMath) {
+        try {
+          const tex = selectedMath.getAttribute('data-tex') || '';
+          const isDisplay = selectedMath.getAttribute('data-display') === 'true';
+          const delimiter = isDisplay ? '$$' : '$';
+          const mathString = `${delimiter}${tex}${delimiter}`;
+
+          e.clipboardData.setData('text/plain', mathString);
+          e.preventDefault();
+          console.log('✅ Formule mathématique copiée:', mathString);
+
+          // Si c'est une action "Couper", on supprime l'élément
+          if (e.type === 'cut') {
+            selectedMath.remove();
+            setSelectedMath(null);
+            if (onInput) onInput({ target: { innerHTML: editorRef.current.innerHTML } });
+            console.log('✂️ Formule mathématique coupée (supprimée)');
+          }
+          return;
+        } catch (error) {
+          console.warn('Erreur copie math:', error);
         }
       }
 
@@ -556,7 +601,17 @@ const Editor = forwardRef(({
         const tempDiv = document.createElement('div');
         tempDiv.appendChild(selectedContent);
 
-        // Convertir HTML en texte avec retours à la ligne préservés
+        // Convertir HTML en texte intelligemment
+        // Remplacer d'abord les mjx-container par leur code TeX original
+        const mathContainers = tempDiv.querySelectorAll('mjx-container[data-tex]');
+        mathContainers.forEach(container => {
+          const tex = container.getAttribute('data-tex') || '';
+          const isDisplay = container.getAttribute('data-display') === 'true';
+          const delimiter = isDisplay ? '$$' : '$';
+          // Remplacer le contenu du conteneur par le texte TeX brut avant stripping
+          container.textContent = `${delimiter}${tex}${delimiter}`;
+        });
+
         const htmlContent = tempDiv.innerHTML;
         const textContent = htmlContent
           .replace(/<div[^>]*>/gi, '')
@@ -578,8 +633,7 @@ const Editor = forwardRef(({
         e.preventDefault();
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewMode, selectedImage]);
+  }, [viewMode, selectedImage, selectedMath, onInput, editorRef]);
 
 
   // Gestionnaire pour forcer le refresh après coller
@@ -703,6 +757,12 @@ const Editor = forwardRef(({
           }
         });
 
+        // Forcer le rendu MathJax après un collage pour transformer les $...$ en formules
+        if (mathJaxReady?.isReady && mathJaxReady.renderMath) {
+          console.log('🔄 [handlePaste] Déclenchement rendu MathJax post-collage');
+          mathJaxReady.renderMath(editorRef.current);
+        }
+
         // Ajouter les poignées aux nouvelles images collées
         const newImages = editorRef.current.querySelectorAll('img:not([data-resizable])');
         newImages.forEach(img => {
@@ -738,6 +798,65 @@ const Editor = forwardRef(({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewMode, handleSelectionChange, handleCopy]);
 
+  // Gestionnaire pour les touches (Delete/Backspace) quand un bloc est sélectionné
+  const handleKeyDown = useCallback((e) => {
+    if (viewMode === 'wysiwyg' && (e.key === 'Delete' || e.key === 'Backspace')) {
+      if (selectedImage) {
+        const wrapper = selectedImage.closest('.resizable-image');
+        const elementToRemove = wrapper || selectedImage;
+        const parent = elementToRemove.parentElement;
+
+        console.log('🗑️ Suppression de l\'image');
+        elementToRemove.remove();
+
+        // Nettoyer le parent si c'était une image-line devenue vide
+        if (parent && parent.classList.contains('image-line') && parent.innerHTML.trim() === '') {
+          parent.remove();
+        }
+
+        onImageClick(null);
+        e.preventDefault();
+        if (onInput) onInput({ target: { innerHTML: editorRef.current.innerHTML } });
+      } else if (selectedMath) {
+        console.log('🗑️ Suppression de la formule mathématique');
+        selectedMath.remove();
+        setSelectedMath(null);
+        e.preventDefault();
+        if (onInput) onInput({ target: { innerHTML: editorRef.current.innerHTML } });
+
+        // Rafraîchir MathJax au cas où
+        if (mathJaxReady?.isReady && mathJaxReady.renderMath) {
+          setTimeout(() => mathJaxReady.renderMath(editorRef.current), 10);
+        }
+      }
+    }
+  }, [viewMode, selectedImage, selectedMath, onInput, onImageClick, setSelectedMath, mathJaxReady, editorRef]);
+
+  // Gestionnaire unifié pour le clic dans l'éditeur
+  const handleClick = useCallback((e) => {
+    // Détection clic sur MathJax
+    const mathContainer = e.target.closest('mjx-container[data-tex]');
+    if (mathContainer) {
+      console.log('🎯 Clic sur MathJax détecté');
+      onMathClick(mathContainer);
+      e.stopPropagation();
+      return;
+    }
+
+    // Sinon passer au gestionnaire par défaut
+    onEditorClick(e);
+  }, [onMathClick, onEditorClick]);
+
+  // Gestionnaire spécifique pour le clic DROIT (contextmenu)
+  const handleContextMenu = useCallback((e) => {
+    const mathContainer = e.target.closest('mjx-container[data-tex]');
+    if (mathContainer) {
+      console.log('🖱️ Clic droit sur MathJax détecté');
+      onMathClick(mathContainer);
+      // On ne fait pas preventDefault ici pour laisser le menu contextuel s'ouvrir
+    }
+  }, [onMathClick]);
+
   // Effect pour redimensionner au changement de contenu (toujours déclaré)
   useEffect(() => {
     if (viewMode !== 'wysiwyg' && editorRef.current) {
@@ -764,42 +883,57 @@ const Editor = forwardRef(({
 
       document.addEventListener('selectionchange', handleSelectionChange);
       editorRef.current.addEventListener('copy', handleCopy);
+      editorRef.current.addEventListener('cut', handleCopy); // Cut utilise la même logique que Copy + Delete
+      editorRef.current.addEventListener('keydown', handleKeyDown);
       editorRef.current.addEventListener('paste', handlePaste);
       editorRef.current.addEventListener('paste', debugPaste); // DEBUG GLOBAL
+      editorRef.current.addEventListener('click', handleClick);
+      editorRef.current.addEventListener('contextmenu', handleContextMenu);
 
-      console.log('✅ [DEBUG] Event paste attaché à editorRef.current + debug global');
+      console.log('✅ [DEBUG] Events attachés à editorRef.current');
 
       return () => {
         console.log('🗑️ [DEBUG] Nettoyage events');
         document.removeEventListener('selectionchange', handleSelectionChange);
         editorRef.current?.removeEventListener('copy', handleCopy);
+        editorRef.current?.removeEventListener('cut', handleCopy);
+        editorRef.current?.removeEventListener('keydown', handleKeyDown);
         editorRef.current?.removeEventListener('paste', handlePaste);
         editorRef.current?.removeEventListener('paste', debugPaste);
+        editorRef.current?.removeEventListener('click', handleClick);
+        editorRef.current?.removeEventListener('contextmenu', handleContextMenu);
       };
     }
-  }, [viewMode, handleSelectionChange, handleCopy]);
+  }, [viewMode, handleSelectionChange, handleCopy, handleKeyDown, handleClick, handleContextMenu]);
 
-  // Effect pour appliquer le style de sélection d'image
+  // Effect pour appliquer le style de sélection d'image et math
   useEffect(() => {
     if (viewMode === 'wysiwyg' && editorRef.current) {
-      // Supprimer la classe de toutes les images
+      // Nettoyage images
       const allImages = editorRef.current.querySelectorAll('img');
       allImages.forEach(img => {
         const wrapper = img.closest('.resizable-image');
-        if (wrapper) {
-          wrapper.classList.remove('image-selected');
-        }
+        if (wrapper) wrapper.classList.remove('image-selected');
       });
 
-      // Ajouter la classe à l'image sélectionnée
+      // Nettoyage maths
+      const allMaths = editorRef.current.querySelectorAll('mjx-container');
+      allMaths.forEach(math => {
+        math.classList.remove('math-selected');
+      });
+
+      // Appliquer sélection image
       if (selectedImage) {
         const wrapper = selectedImage.closest('.resizable-image');
-        if (wrapper) {
-          wrapper.classList.add('image-selected');
-        }
+        if (wrapper) wrapper.classList.add('image-selected');
+      }
+
+      // Appliquer sélection math
+      if (selectedMath) {
+        selectedMath.classList.add('math-selected');
       }
     }
-  }, [selectedImage, viewMode, content]);
+  }, [selectedImage, selectedMath, viewMode, content]);
 
   // Gestion des poignées de redimensionnement pour les images
   useEffect(() => {

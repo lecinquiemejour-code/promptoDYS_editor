@@ -16,6 +16,7 @@ const Toolbar = ({
   developerMode = false,
   ignoreSelectionChangeRef,
   selectedImage,
+  selectedMath,
   storeBlobForUrl,
   getBlobFromUrl,
   getAllBlobs,
@@ -64,8 +65,10 @@ const Toolbar = ({
     opacity: 0.6
   };
 
-  // Vérifier si une image est sélectionnée
+  // Vérifier si une image ou une formule est sélectionnée
   const isImageSelected = !!selectedImage;
+  const isMathSelected = !!selectedMath;
+  const isBlockSelected = isImageSelected || isMathSelected;
 
   // Vérifier le support File System Access API
   const isFileSystemAccessSupported = () => {
@@ -1618,32 +1621,32 @@ const Toolbar = ({
           <button
             onClick={() => execCommand('normal')}
             className="px-2 py-0.5 text-xs rounded"
-            style={isImageSelected ? buttonDisabledStyle : (!currentFormat.bold && !currentFormat.italic && !currentFormat.underline && !currentFormat.heading && !currentFormat.list ? buttonActiveStyle : buttonInactiveStyle)}
-            disabled={isImageSelected || viewMode !== 'wysiwyg'}
+            style={isBlockSelected ? buttonDisabledStyle : (!currentFormat.bold && !currentFormat.italic && !currentFormat.underline && !currentFormat.heading && !currentFormat.list ? buttonActiveStyle : buttonInactiveStyle)}
+            disabled={isBlockSelected || viewMode !== 'wysiwyg'}
           >
             Normal
           </button>
           <button
             onClick={() => execCommand('bold')}
             className="px-2 py-0.5 text-xs rounded font-bold"
-            style={isImageSelected ? buttonDisabledStyle : (currentFormat.bold ? buttonActiveStyle : buttonInactiveStyle)}
-            disabled={isImageSelected || viewMode !== 'wysiwyg'}
+            style={isBlockSelected ? buttonDisabledStyle : (currentFormat.bold ? buttonActiveStyle : buttonInactiveStyle)}
+            disabled={isBlockSelected || viewMode !== 'wysiwyg'}
           >
             Gras
           </button>
           <button
             onClick={() => execCommand('italic')}
             className="px-2 py-0.5 text-xs rounded italic"
-            style={isImageSelected ? buttonDisabledStyle : (currentFormat.italic ? buttonActiveStyle : buttonInactiveStyle)}
-            disabled={isImageSelected || viewMode !== 'wysiwyg'}
+            style={isBlockSelected ? buttonDisabledStyle : (currentFormat.italic ? buttonActiveStyle : buttonInactiveStyle)}
+            disabled={isBlockSelected || viewMode !== 'wysiwyg'}
           >
             Italique
           </button>
           <button
             onClick={() => execCommand('underline')}
             className="px-2 py-0.5 text-xs rounded underline"
-            style={isImageSelected ? buttonDisabledStyle : (currentFormat.underline ? buttonActiveStyle : buttonInactiveStyle)}
-            disabled={isImageSelected || viewMode !== 'wysiwyg'}
+            style={isBlockSelected ? buttonDisabledStyle : (currentFormat.underline ? buttonActiveStyle : buttonInactiveStyle)}
+            disabled={isBlockSelected || viewMode !== 'wysiwyg'}
           >
             Souligné
           </button>
@@ -1767,32 +1770,32 @@ const Toolbar = ({
           <button
             onClick={() => execCommand('normal')}
             className="px-2 py-0.5 text-xs rounded"
-            style={isImageSelected ? buttonDisabledStyle : (!currentFormat.heading && !currentFormat.list ? buttonActiveStyle : buttonInactiveStyle)}
-            disabled={isImageSelected || viewMode !== 'wysiwyg'}
+            style={isBlockSelected ? buttonDisabledStyle : (!currentFormat.heading && !currentFormat.list ? buttonActiveStyle : buttonInactiveStyle)}
+            disabled={isBlockSelected || viewMode !== 'wysiwyg'}
           >
             Texte
           </button>
           <button
             onClick={() => handleHeading('h3')}
             className="px-2 py-0.5 text-xs rounded"
-            style={isImageSelected ? buttonDisabledStyle : (currentFormat.heading === 'h3' ? buttonActiveStyle : buttonInactiveStyle)}
-            disabled={isImageSelected || viewMode !== 'wysiwyg'}
+            style={isBlockSelected ? buttonDisabledStyle : (currentFormat.heading === 'h3' ? buttonActiveStyle : buttonInactiveStyle)}
+            disabled={isBlockSelected || viewMode !== 'wysiwyg'}
           >
             Titre 1
           </button>
           <button
             onClick={() => handleHeading('h2')}
             className="px-2 py-0.5 text-xs rounded"
-            style={isImageSelected ? buttonDisabledStyle : (currentFormat.heading === 'h2' ? buttonActiveStyle : buttonInactiveStyle)}
-            disabled={isImageSelected || viewMode !== 'wysiwyg'}
+            style={isBlockSelected ? buttonDisabledStyle : (currentFormat.heading === 'h2' ? buttonActiveStyle : buttonInactiveStyle)}
+            disabled={isBlockSelected || viewMode !== 'wysiwyg'}
           >
             Titre 2
           </button>
           <button
             onClick={() => handleHeading('h1')}
             className="px-2 py-0.5 text-xs rounded"
-            style={isImageSelected ? buttonDisabledStyle : (currentFormat.heading === 'h1' ? buttonActiveStyle : buttonInactiveStyle)}
-            disabled={isImageSelected || viewMode !== 'wysiwyg'}
+            style={isBlockSelected ? buttonDisabledStyle : (currentFormat.heading === 'h1' ? buttonActiveStyle : buttonInactiveStyle)}
+            disabled={isBlockSelected || viewMode !== 'wysiwyg'}
           >
             Titre 3
           </button>
@@ -1804,8 +1807,8 @@ const Toolbar = ({
           <button
             onClick={handleRemoveList}
             className="px-2 py-0.5 text-xs rounded"
-            style={isImageSelected ? buttonDisabledStyle : buttonInactiveStyle}
-            disabled={isImageSelected || viewMode !== 'wysiwyg'}
+            style={isBlockSelected ? buttonDisabledStyle : buttonInactiveStyle}
+            disabled={isBlockSelected || viewMode !== 'wysiwyg'}
             title="Supprimer la liste"
           >
             ✗
@@ -1813,24 +1816,24 @@ const Toolbar = ({
           <button
             onClick={() => handleList('bullet')}
             className="px-2 py-0.5 text-xs rounded"
-            style={isImageSelected ? buttonDisabledStyle : (currentFormat.list === 'bullet' ? buttonActiveStyle : buttonInactiveStyle)}
-            disabled={isImageSelected || viewMode !== 'wysiwyg'}
+            style={isBlockSelected ? buttonDisabledStyle : (currentFormat.list === 'bullet' ? buttonActiveStyle : buttonInactiveStyle)}
+            disabled={isBlockSelected || viewMode !== 'wysiwyg'}
           >
             • Puces
           </button>
           <button
             onClick={() => handleList('number')}
             className="px-2 py-0.5 text-xs rounded"
-            style={isImageSelected ? buttonDisabledStyle : (currentFormat.list === 'number' ? buttonActiveStyle : buttonInactiveStyle)}
-            disabled={isImageSelected || viewMode !== 'wysiwyg'}
+            style={isBlockSelected ? buttonDisabledStyle : (currentFormat.list === 'number' ? buttonActiveStyle : buttonInactiveStyle)}
+            disabled={isBlockSelected || viewMode !== 'wysiwyg'}
           >
             1. Numéros
           </button>
           <button
             onClick={() => handleList('letter')}
             className="px-2 py-0.5 text-xs rounded"
-            style={isImageSelected ? buttonDisabledStyle : (currentFormat.list === 'letter' ? buttonActiveStyle : buttonInactiveStyle)}
-            disabled={isImageSelected || viewMode !== 'wysiwyg'}
+            style={isBlockSelected ? buttonDisabledStyle : (currentFormat.list === 'letter' ? buttonActiveStyle : buttonInactiveStyle)}
+            disabled={isBlockSelected || viewMode !== 'wysiwyg'}
           >
             a. Lettres
           </button>
