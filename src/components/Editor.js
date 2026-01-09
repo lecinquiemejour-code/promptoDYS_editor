@@ -460,7 +460,20 @@ const Editor = forwardRef(({
         editorRef.current.innerHTML = displayContent;
 
         // Re-rendre MathJax après mise à jour du contenu
-        if (window.MathJax && window.MathJax.typesetPromise) {
+        // Utiliser la fonction renderMath passée en props si disponible (depuis useMathJax)
+        if (mathJaxReady && mathJaxReady.renderMath) {
+          mathJaxReady.renderMath(editorRef.current, (enrichedCount) => {
+            if (enrichedCount > 0) {
+              console.log(`🔄 [Editor] MathJax enrichi (${enrichedCount}), update state triggered`);
+              // Déclencher un événement input pour mettre à jour l'état React "content"
+              // avec le nouveau DOM contenant les attributs data-tex
+              if (onInput) {
+                onInput({ target: { innerHTML: editorRef.current.innerHTML } });
+              }
+            }
+          });
+        } else if (window.MathJax && window.MathJax.typesetPromise) {
+          // Fallback ancien code si renderMath n'est pas dispo
           window.MathJax.typesetPromise([editorRef.current]).catch((err) => {
             console.warn('Erreur MathJax:', err);
           });
@@ -493,6 +506,25 @@ const Editor = forwardRef(({
     initializeContent();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewMode, content]);
+
+  // NOUVEAU: Effet pour rattraper le rendu MathJax si nécessaire (Start-up ou Changement contenu)
+  // Ne se déclenche QUE si MathJax est prêt ET qu'il reste des formules non rendues ($...$)
+  useEffect(() => {
+    if (viewMode === 'wysiwyg' && editorRef.current && mathJaxReady?.isReady && mathJaxReady.renderMath) {
+      // On vérifie s'il y a des maths non rendus
+      const html = editorRef.current.innerHTML;
+      if (html.includes('$') && !html.includes('mjx-container')) {
+        console.log('🔄 [Editor] MathJax Check - Rendu de rattrapage nécessaire');
+        mathJaxReady.renderMath(editorRef.current, (enrichedCount) => {
+          if (enrichedCount > 0) {
+            if (onInput) onInput({ target: { innerHTML: editorRef.current.innerHTML } });
+          }
+        });
+      }
+    }
+  }, [mathJaxReady?.isReady, viewMode, content]); // Ajout de content pour vérifier à chaque changement de fichier
+
+
 
   // Gestionnaire pour la copie - convertir HTML en texte propre et gérer les images sélectionnées
   const handleCopy = useCallback((e) => {

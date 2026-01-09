@@ -58,9 +58,35 @@ export const htmlToMarkdown = (html) => {
     return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
   };
 
+  // 🆕 Préserver les équations MathJax (traitement PRIORITAIRE avant tout nettoyage)
+  const mathMarkers = [];
+  // Cibler les éléments MathJax (mjx-container) qui ont notre attribut data-tex
+  // Utilisation d'une regex pour capturer l'attribut data-tex et data-display
+  let tempHtml = html.replace(/<mjx-container[^>]*data-tex="([^"]*)"[^>]*>.*?<\/mjx-container>/gis, (match, texContent) => {
+    // Récupérer aussi l'attribut data-display s'il existe
+    const displayMatch = match.match(/data-display="(true|false)"/i);
+    const isDisplay = displayMatch ? displayMatch[1] === 'true' : false;
+
+    // Nettoyer le code TeX (décoder entités HTML si nécessaire)
+    const cleanTex = texContent
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'");
+
+    const marker = `__MATHJAX_Marker_${mathMarkers.length}__`;
+    // Formater selon le type (inline $ ou block $$)
+    const markdownMath = isDisplay ? `$$${cleanTex}$$` : `$${cleanTex}$`;
+
+    mathMarkers.push(markdownMath);
+    return marker;
+  });
+
+  // Utiliser tempHtml pour la suite du traitement des couleurs
   // Préserver les spans colorés en les marquant temporairement ET normaliser les couleurs
   const colorSpanMarkers = [];
-  let tempHtml = html.replace(/<span[^>]*style="[^"]*color:[^"]*"[^>]*>.*?<\/span>/gis, (match) => {
+  tempHtml = tempHtml.replace(/<span[^>]*style="[^"]*color:[^"]*"[^>]*>.*?<\/span>/gis, (match) => {
     // Normaliser rgb() vers hex dans le span
     const normalizedMatch = match.replace(/color:\s*rgb\([^)]+\)/gi, (colorMatch) => {
       const hexColor = rgbToHex(colorMatch.replace('color:', '').trim());
@@ -205,6 +231,11 @@ export const htmlToMarkdown = (html) => {
     // Restaurer les spans colorés
     .replace(/__COLOR_SPAN_(\d+)__/g, (match, index) => {
       return colorSpanMarkers[parseInt(index)] || '';
+    })
+
+    // Restaurer les équations MathJax
+    .replace(/__MATHJAX_Marker_(\d+)__/g, (match, index) => {
+      return mathMarkers[parseInt(index)] || '';
     })
 
     // Supprimer toutes les autres balises HTML SAUF les spans colorés

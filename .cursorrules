@@ -1,0 +1,11 @@
+# Règles du Projet PromptoDYS Editor
+
+## Build & Déploiement
+- **Build pour Eel (Python)** : Toujours utiliser `npm run build` pour mettre à jour l'application destinée à être lancée via Python/Eel. Le dossier de sortie est `build/`.
+- **Mode Standalone** : N'utiliser `npm run build:standalone` que si un fichier HTML unique auto-hébergé est spécifiquement demandé.
+
+## Configuration & Comportement
+- **Mode Développeur** : Doit être forcé à `OFF` (`false`) à chaque démarrage de l'application dans `ConfigManager.js`.
+- **KISS & YAGNI** : Toujours privilégier la solution la plus simple et éviter de sur-concevoir.
+- **Communication** : Parler en Français avec l'utilisateur.
+- **Vérification** : Toujours demander un "GO" avant d'écrire ou modifier du code.

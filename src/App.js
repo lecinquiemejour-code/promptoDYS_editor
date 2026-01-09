@@ -162,12 +162,20 @@ const App = () => {
   }, [config.developer_mode, configLoading, viewMode, changeViewMode]);
 
   // ⚡ Intégration MathJax en local
-  useMathJax();
+  const mathJaxReady = useMathJax();
+
+  // 🔔 Signal de mise à jour externe (pour déclencher MathJax uniquement sur evt)
+  const [lastExternalUpdate, setLastExternalUpdate] = useState(0);
+
+  const notifyExternalUpdate = useCallback(() => {
+    console.log('🔔 [App] Notification de mise à jour externe reçue');
+    setLastExternalUpdate(prev => prev + 1);
+  }, []);
 
   // État de restauration supprimé - éditeur volatil uniquement
 
   // ⚡ Intégration Eel pour support desktop
-  useEelBridge(content, setContent, viewMode);
+  useEelBridge(content, setContent, viewMode, notifyExternalUpdate);
 
   return (
     <div className="h-screen w-full relative transition-colors duration-200" style={{ backgroundColor: 'var(--dys-bg-color)' }}>
@@ -190,6 +198,8 @@ const App = () => {
             onDeleteSelectedImage={null}
             ignoreSelectionChangeRef={ignoreSelectionChangeRef}
             storeBlobForUrl={storeBlobForUrl}
+            mathJaxReady={mathJaxReady}
+            externalUpdateTrigger={lastExternalUpdate}
           />
         </div>
       </div>
@@ -214,6 +224,7 @@ const App = () => {
           storeBlobForUrl={storeBlobForUrl}
           getBlobFromUrl={getBlobFromUrl}
           getAllBlobs={getAllBlobs}
+          onContentLoad={notifyExternalUpdate}
         />
       </div>
 
