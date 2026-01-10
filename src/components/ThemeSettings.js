@@ -357,12 +357,13 @@ const ThemeSettings = ({
               {voices
                 .filter(v => {
                   if (settings.showAllLanguages) return true;
-                  // Filtrer pour toutes les variantes de français par défaut
-                  return v.lang.toLowerCase().startsWith('fr');
+                  const lang = (v.lang || '').toLowerCase();
+                  // Restaurer le FR et le EN par défaut (comme avant)
+                  return lang.startsWith('fr') || lang.startsWith('en');
                 })
                 .sort((a, b) => a.name.localeCompare(b.name)) // Tri par nom
-                .map(voice => (
-                  <option key={voice.name} value={voice.name}>
+                .map((voice, idx) => (
+                  <option key={`${voice.name}-${voice.lang}-${idx}`} value={voice.name}>
                     {voice.name} ({voice.lang}){voice.localService ? '' : ' ☁️'}
                   </option>
                 ))}
