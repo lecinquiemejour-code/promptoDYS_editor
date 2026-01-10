@@ -1541,8 +1541,24 @@ const Editor = forwardRef(({
             }
           `}</style>
           <div
-            className="editor-content"
-            style={{ position: 'relative' }}
+            className="editor-wrapper"
+            style={{
+              position: 'relative',
+              minHeight: '384px',
+              border: '2px solid #cbd5e1',
+              borderRadius: '8px',
+              backgroundColor: 'var(--dys-bg-color)',
+              boxShadow: 'inset 0 2px 4px 0 rgba(0, 0, 0, 0.06)',
+              overflow: 'hidden', // Clip highlights pour ne pas qu'ils sortent
+              display: 'flex',
+              flexDirection: 'column'
+            }}
+            onClick={(e) => {
+              // Si on clique sur le padding du wrapper, on focus l'éditeur
+              if (e.target === e.currentTarget && editorRef.current) {
+                editorRef.current.focus();
+              }
+            }}
           >
             <div
               className="editor-content"
@@ -1681,44 +1697,47 @@ const Editor = forwardRef(({
               }}
               onClick={onEditorClick}
               style={{
-                minHeight: '384px',
                 outline: 'none',
                 padding: '20px',
                 lineHeight: 'var(--dys-line-height)',
                 fontFamily: 'var(--dys-font-family)',
                 fontSize: 'var(--dys-font-size)',
                 color: 'var(--dys-text-color)',
-                backgroundColor: 'var(--dys-bg-color)',
-                overflow: 'auto',
+                backgroundColor: 'transparent', // Transparent car géré par le wrapper
+                overflowY: 'visible', // Laisse le wrapper grandir
                 wordWrap: 'break-word',
                 whiteSpace: 'pre-wrap',
-                border: '2px solid #cbd5e1', // Bordure plus visible (Slate-300)
-                borderRadius: '8px',
-                boxShadow: 'inset 0 2px 4px 0 rgba(0, 0, 0, 0.06)',
+                border: 'none', // Pas de bordure ici
+                boxShadow: 'none',
+                flex: 1, // Rempli l'espace du wrapper
+                minHeight: '100%'
               }}
             />
             {/* Trailing Highlights (Persistance) */}
-            {trailingHighlights.map(h => (
-              <div
-                key={h.id}
-                style={{
-                  position: 'absolute',
-                  top: h.rect.top,
-                  left: h.rect.left,
-                  width: h.rect.width,
-                  height: h.rect.height,
-                  backgroundColor: 'transparent',
-                  borderBottom: '4px solid #FF8C00',
-                  borderRadius: '0px',
-                  pointerEvents: 'none',
-                  zIndex: 4, // Derrière le courant
-                  animation: 'fadeOutHighlight 2s ease-out forwards' // Animation CSS
-                }}
-              />
-            ))}
+            {trailingHighlights.map(h => {
+              if (h.rect.width <= 0 || h.rect.height <= 0) return null; // Sécurité
+              return (
+                <div
+                  key={h.id}
+                  style={{
+                    position: 'absolute',
+                    top: h.rect.top,
+                    left: h.rect.left,
+                    width: h.rect.width,
+                    height: h.rect.height,
+                    backgroundColor: 'transparent',
+                    borderBottom: '4px solid #FF8C00',
+                    borderRadius: '0px',
+                    pointerEvents: 'none',
+                    zIndex: 4, // Derrière le courant
+                    animation: 'fadeOutHighlight 2s ease-out forwards' // Animation CSS
+                  }}
+                />
+              );
+            })}
 
             {/* Overlay de surlignage TTS (Courant) */}
-            {highlightRect && (
+            {highlightRect && highlightRect.width > 0 && highlightRect.height > 0 && (
               <div
                 style={{
                   position: 'absolute',
