@@ -337,22 +337,30 @@ const ThemeSettings = ({
           {/* Sélection de la voix */}
           <div style={{ marginBottom: '4px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
-              <div style={{ fontSize: '12px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <div style={{ fontSize: '12px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '6px' }}>
                 Voix
                 <button
                   onClick={refreshVoices}
                   style={{
-                    border: 'none',
-                    background: 'none',
+                    border: '1px solid #d1d5db',
+                    background: '#f3f4f6',
                     cursor: 'pointer',
-                    fontSize: '12px',
-                    padding: '0 4px',
-                    borderRadius: '4px',
-                    backgroundColor: '#f3f4f6'
+                    fontSize: '11px',
+                    padding: '2px 8px',
+                    borderRadius: '6px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    fontWeight: '600',
+                    color: '#374151',
+                    transition: 'all 0.2s ease',
+                    boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
                   }}
+                  onMouseOver={e => e.currentTarget.style.backgroundColor = '#e5e7eb'}
+                  onMouseOut={e => e.currentTarget.style.backgroundColor = '#f3f4f6'}
                   title="Rafraîchir la liste des voix"
                 >
-                  🔄
+                  <span style={{ fontSize: '14px' }}>🔄</span> Mettre à jour les voix
                 </button>
               </div>
               <label style={{ fontSize: '10px', color: '#6b7280', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '2px' }}>
