@@ -1494,16 +1494,17 @@ const Editor = forwardRef(({
               <div
                 style={{
                   position: 'absolute',
-                  top: highlightRect.top,
-                  left: highlightRect.left,
-                  width: highlightRect.width,
-                  height: highlightRect.height,
-                  backgroundColor: 'rgba(255, 255, 0, 0.65)', // Jaune plus vif et un peu plus opaque
-                  borderRadius: '3px',
+                  top: highlightRect.top - 1, // Petit décalage pour ne pas coller au texte
+                  left: highlightRect.left - 2,
+                  width: highlightRect.width + 4,
+                  height: highlightRect.height + 2,
+                  backgroundColor: 'rgba(255, 255, 0, 0.1)', // Fond très léger
+                  border: '2px solid #FFFF00', // Bordure jaune vive
+                  borderRadius: '4px',
                   pointerEvents: 'none',
                   zIndex: 5,
                   transition: 'all 0.1s ease-out',
-                  boxShadow: '0 0 5px rgba(255, 255, 0, 0.5)' // Petite lueur pour plus de visibilité
+                  boxShadow: '0 0 4px rgba(255, 255, 0, 0.3)' // Lueur légère sur le contour
                 }}
               />
             )}
