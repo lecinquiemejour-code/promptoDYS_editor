@@ -37,6 +37,8 @@ const Editor = forwardRef(({
       const sel = window.getSelection();
       if (sel.rangeCount > 0) {
         selectionRangeRef.current = sel.getRangeAt(0).cloneRange();
+        // Faire disparaître la sélection native (le bloc bleu) pour ne laisser que notre surlignage
+        sel.removeAllRanges();
       }
     }
     if (!highlightInfo) {
@@ -1496,11 +1498,12 @@ const Editor = forwardRef(({
                   left: highlightRect.left,
                   width: highlightRect.width,
                   height: highlightRect.height,
-                  backgroundColor: 'rgba(255, 235, 59, 0.4)',
+                  backgroundColor: 'rgba(255, 255, 0, 0.65)', // Jaune plus vif et un peu plus opaque
                   borderRadius: '3px',
                   pointerEvents: 'none',
                   zIndex: 5,
-                  transition: 'all 0.1s ease-out'
+                  transition: 'all 0.1s ease-out',
+                  boxShadow: '0 0 5px rgba(255, 255, 0, 0.5)' // Petite lueur pour plus de visibilité
                 }}
               />
             )}
