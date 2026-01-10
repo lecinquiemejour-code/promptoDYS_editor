@@ -117,7 +117,8 @@ const App = () => {
     speak,
     pause,
     resume,
-    cancel
+    cancel,
+    highlightInfo
   } = useTextToSpeech({
     voiceName: settings.voiceName,
     rate: settings.voiceRate,
@@ -206,6 +207,7 @@ const App = () => {
             storeBlobForUrl={storeBlobForUrl}
             mathJaxReady={mathJaxReady}
             externalUpdateTrigger={lastExternalUpdate}
+            highlightInfo={highlightInfo}
           />
         </div>
       </div>

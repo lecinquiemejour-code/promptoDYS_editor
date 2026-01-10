@@ -10,6 +10,7 @@ const useTextToSpeech = (options = {}) => {
     const [isPaused, setIsPaused] = useState(false);
     const [isSupported, setIsSupported] = useState(false);
     const [voices, setVoices] = useState([]);
+    const [highlightInfo, setHighlightInfo] = useState(null); // { charIndex, length }
 
     // Utiliser une ref pour les options afin d'avoir toujours les dernières valeurs dans speak
     // sans avoir à l'ajouter aux dépendances (ce qui recréerait la fonction)
@@ -75,14 +76,17 @@ const useTextToSpeech = (options = {}) => {
     const handleEnd = useCallback(() => {
         setIsSpeaking(false);
         setIsPaused(false);
+        setHighlightInfo(null);
         charIndexRef.current = 0; // Réinitialiser à la fin
     }, []);
 
     const cancel = useCallback(() => {
         if (!isSupported) return;
         synth.current.cancel();
+        setIsSpeaking(true); // Temporairement pour forcer l'annulation propre si on redémarre
         setIsSpeaking(false);
         setIsPaused(false);
+        setHighlightInfo(null);
     }, [isSupported]);
 
     const pause = useCallback(() => {
@@ -143,7 +147,18 @@ const useTextToSpeech = (options = {}) => {
         utterance.onboundary = (event) => {
             // Mettre à jour la position globale
             // startOffset est le décalage initial si on a redémarré
-            charIndexRef.current = startOffset + event.charIndex;
+            const globalIndex = startOffset + event.charIndex;
+            charIndexRef.current = globalIndex;
+
+            // Extraire la longueur du mot en cours
+            const remainingText = text.substring(globalIndex);
+            const wordMatch = remainingText.match(/^\w+/);
+            const wordLength = wordMatch ? wordMatch[0].length : 1;
+
+            setHighlightInfo({
+                charIndex: globalIndex,
+                length: wordLength
+            });
         };
 
         utterance.onend = handleEnd;
@@ -184,7 +199,8 @@ const useTextToSpeech = (options = {}) => {
         resume,
         cancel,
         refreshVoices, // Nouvelle fonction exposée
-        voices
+        voices,
+        highlightInfo
     };
 };
 

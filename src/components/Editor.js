@@ -20,13 +20,110 @@ const Editor = forwardRef(({
   editorRef,
   selectedMath,
   onMathClick,
-  setSelectedMath
+  setSelectedMath,
+  highlightInfo
 }, ref) => {
 
 
   // Utilise editorRef passée en props (pas de ref locale)
   const isInitializedRef = useRef(false);
   const previousContentRef = useRef('');
+  const [highlightRect, setHighlightRect] = React.useState(null);
+  const selectionRangeRef = useRef(null);
+
+  // Sauvegarder la sélection au début de la lecture
+  useEffect(() => {
+    if (highlightInfo && highlightInfo.charIndex === 0) {
+      const sel = window.getSelection();
+      if (sel.rangeCount > 0) {
+        selectionRangeRef.current = sel.getRangeAt(0).cloneRange();
+      }
+    }
+    if (!highlightInfo) {
+      setHighlightRect(null);
+      selectionRangeRef.current = null;
+    }
+  }, [highlightInfo]);
+
+  // Calculer la position du mot en cours
+  useEffect(() => {
+    if (highlightInfo && selectionRangeRef.current && editorRef.current) {
+      try {
+        const range = document.createRange();
+        const startNode = selectionRangeRef.current.startContainer;
+        const startOffset = selectionRangeRef.current.startOffset;
+
+        // Cette partie est complexe car on doit traverser les noeuds de texte
+        // Pour simplifier : on va utiliser le texte du range initial
+        // et créer un sous-range pour le mot
+
+        // Approche simplifiée : On utilise la sélection actuelle pour trouver le point de départ
+        // Puis on avance de charIndex caractères
+
+        let currentChar = 0;
+        let targetNode = null;
+        let targetOffset = 0;
+
+        const findPos = (root, targetIndex) => {
+          const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null, false);
+          let node;
+          let currentIdx = 0;
+
+          // Si on a une sélection, on commence au noeud de sélection
+          let started = false;
+
+          while (node = walker.nextNode()) {
+            if (!started) {
+              if (node === selectionRangeRef.current.startContainer) {
+                started = true;
+                const len = node.textContent.length - selectionRangeRef.current.startOffset;
+                if (currentIdx + len >= targetIndex) {
+                  return { node, offset: selectionRangeRef.current.startOffset + (targetIndex - currentIdx) };
+                }
+                currentIdx += len;
+                continue;
+              }
+              continue;
+            }
+
+            const len = node.textContent.length;
+            if (currentIdx + len >= targetIndex) {
+              return { node, offset: targetIndex - currentIdx };
+            }
+            currentIdx += len;
+          }
+          return null;
+        };
+
+        const startPos = findPos(editorRef.current, highlightInfo.charIndex);
+        const endPos = findPos(editorRef.current, highlightInfo.charIndex + highlightInfo.length);
+
+        if (startPos && endPos) {
+          range.setStart(startPos.node, startPos.offset);
+          range.setEnd(endPos.node, endPos.offset);
+
+          const rects = range.getClientRects();
+          if (rects.length > 0) {
+            const editorRect = editorRef.current.getBoundingClientRect();
+            const scrollContainer = editorRef.current.closest('.editor-scroll');
+            const scrollLeft = scrollContainer ? scrollContainer.scrollLeft : 0;
+            const scrollTop = scrollContainer ? scrollContainer.scrollTop : 0;
+
+            // On prend le premier rect pour simplifier (cas du mot coupé sur 2 lignes rare)
+            const r = rects[0];
+            setHighlightRect({
+              top: r.top - editorRect.top,
+              left: r.left - editorRect.left,
+              width: r.width,
+              height: r.height
+            });
+          }
+        }
+      } catch (e) {
+        console.warn('Erreur calcul highlight:', e);
+      }
+    }
+  }, [highlightInfo, editorRef]);
 
   // Fonction pour créer des blobs uniques (mutualisation avec Toolbar)
   const createUniqueBlob = useCallback((file, storeBlobForUrl) => {
@@ -1237,158 +1334,177 @@ const Editor = forwardRef(({
             .resize-handle.sw { bottom: -2px; left: -2px; cursor: sw-resize; }
             .resize-handle.se { bottom: -2px; right: -2px; cursor: se-resize; }
           `}</style>
-          <div
-            className="editor-content"
-            ref={(el) => { editorRef.current = el; }}
-            contentEditable="true"
-            suppressContentEditableWarning={true}
-            spellCheck={false}
-            onInput={(e) => {
-              console.log('🎯 WYSIWYG onInput déclenché!');
-              handleWysiwygChange(e);
-            }}
-            onKeyUp={(e) => {
-              console.log('⌨️ WYSIWYG onKeyUp déclenché! Touche:', e.key);
-              handleWysiwygChange(e);
-            }}
-            onPaste={(e) => {
-              console.log('📋 WYSIWYG onPaste déclenché!');
-              setTimeout(() => handleWysiwygChange(e), 10); // Délai pour laisser le paste s'appliquer
-            }}
-            onMouseUp={(e) => {
-              console.log('🖱️ WYSIWYG onMouseUp - Sélection changée - ignoreFlag:', ignoreSelectionChangeRef?.current);
-              if (onSelectionChange && !ignoreSelectionChangeRef?.current) {
-                console.log('✅ EDITOR onMouseUp - VA APPELER onSelectionChange dans 10ms');
-                setTimeout(onSelectionChange, 10);
-              } else {
-                console.log('❌ EDITOR onMouseUp - onSelectionChange BLOQUÉ');
-              }
-            }}
-            onKeyDown={(e) => {
-              // Protection contre les événements undefined
-              if (!e || !e.key) {
-                console.warn('⚠️ Événement onKeyDown invalide:', e);
-                return;
-              }
-
-              console.log('🔽 WYSIWYG onKeyDown déclenché! Touche:', e.key);
-
-              // Gestion des touches pour les images sélectionnées
-              if (selectedImage) {
-                if (e.key === 'Delete' || e.key === 'Backspace') {
-                  e.preventDefault();
-                  // Supprimer l'image directement
-                  const wrapper = selectedImage.closest('.resizable-image');
-                  const elementToRemove = wrapper || selectedImage;
-                  elementToRemove.remove();
-
-                  // Désélectionner l'image
-                  if (onImageClick) {
-                    onImageClick(null);
-                  }
-
-                  // Déclencher la sauvegarde
-                  if (onInput) {
-                    const event = new Event('input', { bubbles: true });
-                    editorRef.current.dispatchEvent(event);
-                  }
+          <div style={{ position: 'relative' }}>
+            <div
+              className="editor-content"
+              ref={(el) => { editorRef.current = el; }}
+              contentEditable="true"
+              suppressContentEditableWarning={true}
+              spellCheck={false}
+              onInput={(e) => {
+                console.log('🎯 WYSIWYG onInput déclenché!');
+                handleWysiwygChange(e);
+              }}
+              onKeyUp={(e) => {
+                console.log('⌨️ WYSIWYG onKeyUp déclenché! Touche:', e.key);
+                handleWysiwygChange(e);
+              }}
+              onPaste={(e) => {
+                console.log('📋 WYSIWYG onPaste déclenché!');
+                setTimeout(() => handleWysiwygChange(e), 10); // Délai pour laisser le paste s'appliquer
+              }}
+              onMouseUp={(e) => {
+                console.log('🖱️ WYSIWYG onMouseUp - Sélection changée - ignoreFlag:', ignoreSelectionChangeRef?.current);
+                if (onSelectionChange && !ignoreSelectionChangeRef?.current) {
+                  console.log('✅ EDITOR onMouseUp - VA APPELER onSelectionChange dans 10ms');
+                  setTimeout(onSelectionChange, 10);
+                } else {
+                  console.log('❌ EDITOR onMouseUp - onSelectionChange BLOQUÉ');
+                }
+              }}
+              onKeyDown={(e) => {
+                // Protection contre les événements undefined
+                if (!e || !e.key) {
+                  console.warn('⚠️ Événement onKeyDown invalide:', e);
                   return;
-                } else if (e.key === 'Enter') {
-                  e.preventDefault();
-                  // Insérer une nouvelle ligne après l'image sélectionnée
-                  const wrapper = selectedImage.closest('.resizable-image');
-                  if (wrapper && wrapper.parentNode) {
-                    const newParagraph = document.createElement('p');
-                    newParagraph.innerHTML = '<br>';
-                    wrapper.parentNode.insertBefore(newParagraph, wrapper.nextSibling);
+                }
 
-                    console.log('📍 ENTER Image - Création du paragraphe:', newParagraph);
+                console.log('🔽 WYSIWYG onKeyDown déclenché! Touche:', e.key);
 
-                    // Attendre que tous les événements (onInput, handleWysiwygChange, etc.) se stabilisent
-                    setTimeout(() => {
-                      console.log('📍 ENTER Image - Positionnement curseur APRÈS stabilisation');
+                // Gestion des touches pour les images sélectionnées
+                if (selectedImage) {
+                  if (e.key === 'Delete' || e.key === 'Backspace') {
+                    e.preventDefault();
+                    // Supprimer l'image directement
+                    const wrapper = selectedImage.closest('.resizable-image');
+                    const elementToRemove = wrapper || selectedImage;
+                    elementToRemove.remove();
 
-                      const selection = window.getSelection();
-                      const range = document.createRange();
-
-                      console.log('📍 ENTER Image - Selection avant (delayed):', selection.rangeCount);
-
-                      // Positionner au début du paragraphe
-                      range.setStart(newParagraph, 0);
-                      range.collapse(true);
-
-                      console.log('📍 ENTER Image - Range (delayed) startContainer:', range.startContainer);
-                      console.log('📍 ENTER Image - Range (delayed) startOffset:', range.startOffset);
-
-                      selection.removeAllRanges();
-                      selection.addRange(range);
-
-                      console.log('📍 ENTER Image - Selection (delayed) après:', selection.rangeCount);
-
-                      // Focus pour s'assurer que le curseur est visible
-                      editorRef.current?.focus();
-
-                      console.log('📍 ENTER Image - Positionnement terminé avec succès!');
-                    }, 100); // Délai pour laisser les événements se stabiliser
+                    // Désélectionner l'image
+                    if (onImageClick) {
+                      onImageClick(null);
+                    }
 
                     // Déclencher la sauvegarde
                     if (onInput) {
                       const event = new Event('input', { bubbles: true });
                       editorRef.current.dispatchEvent(event);
                     }
+                    return;
+                  } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    // Insérer une nouvelle ligne après l'image sélectionnée
+                    const wrapper = selectedImage.closest('.resizable-image');
+                    if (wrapper && wrapper.parentNode) {
+                      const newParagraph = document.createElement('p');
+                      newParagraph.innerHTML = '<br>';
+                      wrapper.parentNode.insertBefore(newParagraph, wrapper.nextSibling);
 
-                    // Désélectionner l'image
-                    if (onImageClick) {
-                      onImageClick(null);
+                      console.log('📍 ENTER Image - Création du paragraphe:', newParagraph);
+
+                      // Attendre que tous les événements (onInput, handleWysiwygChange, etc.) se stabilisent
+                      setTimeout(() => {
+                        console.log('📍 ENTER Image - Positionnement curseur APRÈS stabilisation');
+
+                        const selection = window.getSelection();
+                        const range = document.createRange();
+
+                        console.log('📍 ENTER Image - Selection avant (delayed):', selection.rangeCount);
+
+                        // Positionner au début du paragraphe
+                        range.setStart(newParagraph, 0);
+                        range.collapse(true);
+
+                        console.log('📍 ENTER Image - Range (delayed) startContainer:', range.startContainer);
+                        console.log('📍 ENTER Image - Range (delayed) startOffset:', range.startOffset);
+
+                        selection.removeAllRanges();
+                        selection.addRange(range);
+
+                        console.log('📍 ENTER Image - Selection (delayed) après:', selection.rangeCount);
+
+                        // Focus pour s'assurer que le curseur est visible
+                        editorRef.current?.focus();
+
+                        console.log('📍 ENTER Image - Positionnement terminé avec succès!');
+                      }, 100); // Délai pour laisser les événements se stabiliser
+
+                      // Déclencher la sauvegarde
+                      if (onInput) {
+                        const event = new Event('input', { bubbles: true });
+                        editorRef.current.dispatchEvent(event);
+                      }
+
+                      // Désélectionner l'image
+                      if (onImageClick) {
+                        onImageClick(null);
+                      }
                     }
+                    return;
                   }
-                  return;
                 }
-              }
 
-              // Mise à jour du formatage pour les touches de navigation
-              if (e && e.key && (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
-                setTimeout(() => {
-                  console.log('🔼 EDITOR onKeyDown Navigation - ignoreFlag:', ignoreSelectionChangeRef?.current);
-                  if (onSelectionChange && !ignoreSelectionChangeRef?.current) {
-                    console.log('✅ EDITOR Navigation - VA APPELER onSelectionChange');
-                    onSelectionChange();
-                  } else {
-                    console.log('❌ EDITOR Navigation - onSelectionChange BLOQUÉ');
-                  }
-                }, 10);
-              }
-            }}
-            onFocus={(e) => {
-              console.log('🔍 WYSIWYG onFocus - Mise à jour formatage - ignoreFlag:', ignoreSelectionChangeRef?.current);
-              if (onSelectionChange && !ignoreSelectionChangeRef?.current) {
-                console.log('✅ EDITOR onFocus - VA APPELER onSelectionChange dans 10ms');
-                setTimeout(onSelectionChange, 10);
-              } else {
-                console.log('❌ EDITOR onFocus - onSelectionChange BLOQUÉ');
-              }
-            }}
-            onChange={(e) => {
-              console.log('🔄 onChange déclenché!');
-            }}
-            onClick={onEditorClick}
-            style={{
-              minHeight: '384px',
-              outline: 'none',
-              padding: '20px',
-              lineHeight: 'var(--dys-line-height)',
-              fontFamily: 'var(--dys-font-family)',
-              fontSize: 'var(--dys-font-size)',
-              color: 'var(--dys-text-color)',
-              backgroundColor: 'var(--dys-bg-color)',
-              overflow: 'auto',
-              wordWrap: 'break-word',
-              whiteSpace: 'pre-wrap',
-              border: '2px solid #cbd5e1', // Bordure plus visible (Slate-300)
-              borderRadius: '8px',
-              boxShadow: 'inset 0 2px 4px 0 rgba(0, 0, 0, 0.06)',
-            }}
-          />
+                // Mise à jour du formatage pour les touches de navigation
+                if (e && e.key && (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+                  setTimeout(() => {
+                    console.log('🔼 EDITOR onKeyDown Navigation - ignoreFlag:', ignoreSelectionChangeRef?.current);
+                    if (onSelectionChange && !ignoreSelectionChangeRef?.current) {
+                      console.log('✅ EDITOR Navigation - VA APPELER onSelectionChange');
+                      onSelectionChange();
+                    } else {
+                      console.log('❌ EDITOR Navigation - onSelectionChange BLOQUÉ');
+                    }
+                  }, 10);
+                }
+              }}
+              onFocus={(e) => {
+                console.log('🔍 WYSIWYG onFocus - Mise à jour formatage - ignoreFlag:', ignoreSelectionChangeRef?.current);
+                if (onSelectionChange && !ignoreSelectionChangeRef?.current) {
+                  console.log('✅ EDITOR onFocus - VA APPELER onSelectionChange dans 10ms');
+                  setTimeout(onSelectionChange, 10);
+                } else {
+                  console.log('❌ EDITOR onFocus - onSelectionChange BLOQUÉ');
+                }
+              }}
+              onChange={(e) => {
+                console.log('🔄 onChange déclenché!');
+              }}
+              onClick={onEditorClick}
+              style={{
+                minHeight: '384px',
+                outline: 'none',
+                padding: '20px',
+                lineHeight: 'var(--dys-line-height)',
+                fontFamily: 'var(--dys-font-family)',
+                fontSize: 'var(--dys-font-size)',
+                color: 'var(--dys-text-color)',
+                backgroundColor: 'var(--dys-bg-color)',
+                overflow: 'auto',
+                wordWrap: 'break-word',
+                whiteSpace: 'pre-wrap',
+                border: '2px solid #cbd5e1', // Bordure plus visible (Slate-300)
+                borderRadius: '8px',
+                boxShadow: 'inset 0 2px 4px 0 rgba(0, 0, 0, 0.06)',
+              }}
+            />
+            {/* Overlay de surlignage TTS */}
+            {highlightRect && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: highlightRect.top,
+                  left: highlightRect.left,
+                  width: highlightRect.width,
+                  height: highlightRect.height,
+                  backgroundColor: 'rgba(255, 235, 59, 0.4)',
+                  borderRadius: '3px',
+                  pointerEvents: 'none',
+                  zIndex: 5,
+                  transition: 'all 0.1s ease-out'
+                }}
+              />
+            )}
+          </div>
         </div>
       );
 
