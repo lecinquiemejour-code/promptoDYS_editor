@@ -164,6 +164,17 @@ const useTextToSpeech = (options = {}) => {
         };
     }, [cancel, isSpeaking]);
 
+    const refreshVoices = useCallback(() => {
+        if (typeof window !== 'undefined' && window.speechSynthesis) {
+            const availableVoices = window.speechSynthesis.getVoices();
+            console.log('--- RECHARGE MANUELLE DES VOIX ---');
+            availableVoices.forEach((v, i) => {
+                console.log(`[${i}] ${v.name} (${v.lang}) - Local: ${v.localService}`);
+            });
+            setVoices(availableVoices);
+        }
+    }, []);
+
     return {
         isSupported,
         isSpeaking,
@@ -172,7 +183,8 @@ const useTextToSpeech = (options = {}) => {
         pause,
         resume,
         cancel,
-        voices // Exposé pour le futur menu de configuration
+        refreshVoices, // Nouvelle fonction exposée
+        voices
     };
 };
 

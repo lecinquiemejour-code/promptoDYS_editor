@@ -14,7 +14,7 @@ const ThemeSettings = ({
   toggleSettings
 }) => {
   // Récupérer les voix disponibles via le hook TTS
-  const { voices } = useTextToSpeech();
+  const { voices, refreshVoices } = useTextToSpeech();
 
   if (!isSettingsOpen) return null;
 
@@ -337,7 +337,24 @@ const ThemeSettings = ({
           {/* Sélection de la voix */}
           <div style={{ marginBottom: '4px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
-              <div style={{ fontSize: '12px', color: '#6b7280' }}>Voix</div>
+              <div style={{ fontSize: '12px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                Voix
+                <button
+                  onClick={refreshVoices}
+                  style={{
+                    border: 'none',
+                    background: 'none',
+                    cursor: 'pointer',
+                    fontSize: '12px',
+                    padding: '0 4px',
+                    borderRadius: '4px',
+                    backgroundColor: '#f3f4f6'
+                  }}
+                  title="Rafraîchir la liste des voix"
+                >
+                  🔄
+                </button>
+              </div>
               <label style={{ fontSize: '10px', color: '#6b7280', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '2px' }}>
                 <input
                   type="checkbox"
