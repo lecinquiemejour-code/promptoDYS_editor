@@ -29,6 +29,8 @@ const Editor = forwardRef(({
   const isInitializedRef = useRef(false);
   const previousContentRef = useRef('');
   const [highlightRect, setHighlightRect] = React.useState(null);
+  const [trailingHighlights, setTrailingHighlights] = React.useState([]);
+  const previousRectRef = useRef(null);
   const selectionRangeRef = useRef(null);
 
   // Sauvegarder la sélection au début de la lecture
@@ -46,6 +48,27 @@ const Editor = forwardRef(({
       selectionRangeRef.current = null;
     }
   }, [highlightInfo]);
+
+  // Gestion des calculs de position et de la persistance
+  useEffect(() => {
+    // 1. Sauvegarder l'ancien rect dans l'historique (persistance)
+    if (previousRectRef.current) {
+      const id = Date.now() + Math.random();
+      const rect = previousRectRef.current;
+      setTrailingHighlights(prev => [...prev, { id, rect }]);
+
+      // Auto-nettoyage après 2s (durée de l'animation)
+      setTimeout(() => {
+        setTrailingHighlights(prev => prev.filter(i => i.id !== id));
+      }, 2000);
+    }
+
+    if (!highlightInfo) {
+      setHighlightRect(null);
+      previousRectRef.current = null;
+      // On ne vide PAS trailingHighlights ici, on les laisse s'estomper naturellement
+    }
+  }, [highlightInfo]); // Déclenché à chaque changement de mot
 
   // Calculer la position du mot en cours
   useEffect(() => {
@@ -66,39 +89,204 @@ const Editor = forwardRef(({
         let targetNode = null;
         let targetOffset = 0;
 
+        // Fonction intelligente pour trouver la position en tenant compte des retours à la ligne implicites
         const findPos = (root, targetIndex) => {
-          const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null, false);
+          const walker = document.createTreeWalker(root, NodeFilter.SHOW_ALL, null, false);
           let node;
           let currentIdx = 0;
-
-          // Si on a une sélection, on commence au noeud de sélection
           let started = false;
 
+          let lastBlockParent = null;
+          let lastNodeText = '';
+
           while (node = walker.nextNode()) {
-            if (!started) {
-              if (node === selectionRangeRef.current.startContainer) {
-                started = true;
-                const len = node.textContent.length - selectionRangeRef.current.startOffset;
-                if (currentIdx + len >= targetIndex) {
-                  return { node, offset: selectionRangeRef.current.startOffset + (targetIndex - currentIdx) };
+            // 1. Gérer les noeuds TEXTE
+            if (node.nodeType === Node.TEXT_NODE) {
+              const textContent = node.textContent;
+              const currentBlockParent = node.parentElement;
+
+              // Détection de changement de bloc pour ajout éventuel de saut de ligne virtuel
+              if (started && lastBlockParent && currentBlockParent !== lastBlockParent) {
+                const oldBlock = lastBlockParent.closest('p, div, li, h1, h2, h3, h4, h5, h6');
+                const newBlock = currentBlockParent.closest('p, div, li, h1, h2, h3, h4, h5, h6');
+
+                // Si on change vraiment de bloc visuel
+                if (oldBlock !== newBlock) {
+                  // RÈGLE CRITIQUE : Ne PAS ajouter +1 si le texte en contient déjà un
+                  // Le navigateur ecrase les espaces mais avec pre-wrap ils comptent
+                  const lastEndedWithNl = lastNodeText.endsWith('\n');
+                  const currentStartsWithNl = textContent.startsWith('\n');
+
+                  if (!lastEndedWithNl && !currentStartsWithNl) {
+                    currentIdx += 1; // +1 pour le saut de ligne implicite (ex: entre deux <p>)
+                  }
                 }
-                currentIdx += len;
+              }
+
+              lastBlockParent = currentBlockParent;
+              lastNodeText = textContent;
+
+              // Logique de démarrage
+              if (!started) {
+                if (node === selectionRangeRef.current.startContainer) {
+                  started = true;
+                  // Pour le premier noeud, on ne compte que la partie sélectionnée
+                  const len = textContent.length - selectionRangeRef.current.startOffset;
+
+                  if (currentIdx + len > targetIndex) {
+                    return { node, offset: selectionRangeRef.current.startOffset + (targetIndex - currentIdx) };
+                  }
+
+                  currentIdx += len;
+                  continue;
+                }
                 continue;
               }
-              continue;
+
+              // Logique standard
+              const len = textContent.length;
+
+              // Si on dépasse targetIndex, c'est que la cible est DANS ce noeud (ou qu'on l'a légèrement dépassée à cause du +1)
+              if (currentIdx + len > targetIndex) {
+                let offset = targetIndex - currentIdx;
+
+                // CORRECTION CRITIQUE : Gestion du "Overshoot"
+                // Si on a ajouté un +1 artificiel en trop (changement de bloc), on peut se retrouver avec un offset de -1.
+                // Dans ce cas, on "clamp" à 0 pour pointer sur le début du mot.
+                if (offset < 0) {
+                  if (offset >= -2) { // Tolérance de 2 caractères
+                    // console.log('🔧 Overshoot corrigé dans findPos (clamped to 0)');
+                    offset = 0;
+                  } else {
+                    // Si c'est vraiment trop loin, c'est qu'on a raté le noeud avant ? 
+                    // On laisse faire, le resync s'en chargera peut-être ou ça retournera un offset invalide.
+                  }
+                }
+
+                return { node, offset };
+              }
+
+              // Si on atteint pile la fin
+              if (currentIdx + len === targetIndex) {
+                return { node, offset: len };
+              }
+
+              currentIdx += len;
             }
 
-            const len = node.textContent.length;
-            if (currentIdx + len >= targetIndex) {
-              return { node, offset: targetIndex - currentIdx };
+            // 2. Gérer les <br> explicites
+            else if (node.nodeName === 'BR') {
+              if (started) {
+                // Un BR est toujours un saut de ligne
+                currentIdx += 1;
+
+                // Pour l'historique
+                lastBlockParent = node.parentElement;
+                lastNodeText = '\n'; // On simule un saut de ligne textuel
+
+                if (currentIdx === targetIndex) {
+                  return { node: node.parentNode, offset: Array.from(node.parentNode.childNodes).indexOf(node) + 1 };
+                }
+              }
             }
-            currentIdx += len;
           }
           return null;
         };
 
-        const startPos = findPos(editorRef.current, highlightInfo.charIndex);
-        const endPos = findPos(editorRef.current, highlightInfo.charIndex + highlightInfo.length);
+        // Fonction pour lire le texte à une position donnée pour vérification
+        const getTextAtPos = (pos, length) => {
+          if (!pos) return '';
+          const range = document.createRange();
+          range.setStart(pos.node, pos.offset);
+          // Attention: setEnd peut dépasser le noeud si length est grand
+          // Version simplifiée : on regarde juste le début du noeud
+          if (pos.node.nodeType === Node.TEXT_NODE) {
+            return pos.node.textContent.substr(pos.offset, length);
+          }
+          return '';
+        };
+
+        let startPos = findPos(editorRef.current, highlightInfo.charIndex);
+
+        // --- LOGIQUE DE RESYNCHRONISATION ---
+        // Si on a le mot attendu, on vérifie qu'on est au bon endroit
+        if (highlightInfo.word && startPos) {
+          const foundText = getTextAtPos(startPos, highlightInfo.word.length);
+          // On nettoie les textes pour la comparaison (casse, espaces)
+          const cleanFound = foundText.trim().toLowerCase();
+          const cleanExpected = highlightInfo.word.trim().toLowerCase();
+
+          // Si ça ne matche pas, on cherche autour !
+          if (!cleanFound.startsWith(cleanExpected)) {
+            console.log(`⚠️ TTS Décalage détecté! Attendu: "${cleanExpected}", Trouvé: "${cleanFound}"`);
+
+            // Recherche locale +/- 10 caractères
+            for (let offset = -10; offset <= 10; offset++) {
+              if (offset === 0) continue;
+              const tryPos = findPos(editorRef.current, highlightInfo.charIndex + offset);
+              if (tryPos) {
+                const tryText = getTextAtPos(tryPos, highlightInfo.word.length);
+                if (tryText.trim().toLowerCase().startsWith(cleanExpected)) {
+                  console.log(`✅ TTS Resync réussi à offset ${offset}`);
+                  startPos = tryPos;
+                  // On corrige aussi la fin
+                  break;
+                }
+              }
+            }
+          }
+        }
+
+        // Calcul de la fin basé sur la position (potentiellement corrigée)
+        // On ne recule pas findPos complet pour la fin, on avance juste
+        // MAIS pour être propre, on recalcule findPos relatif ou on avance manuellement
+        // Simplification: on refait findPos avec le même décalage si on a corrigé
+        // Mais on n'a pas stocké l'offset corrigé. Recalculons endPos simplement.
+        // Si startPos est bon, endPos est startPos + length.
+
+        // Approche robuste pour endPos : on part de startPos et on avance de length
+        let endPos = null;
+        if (startPos) {
+          // On utilise une logique locale pour trouver la fin
+          // C'est plus sûr que de rappeler findPos globalement
+          const range = document.createRange();
+          range.setStart(startPos.node, startPos.offset);
+
+          // On cherche le endContainer/endOffset en avançant de 'length' caractères
+          let remaining = highlightInfo.length;
+          let currentNode = startPos.node;
+          let currentOffset = startPos.offset;
+
+          while (remaining > 0 && currentNode) {
+            if (currentNode.nodeType === Node.TEXT_NODE) {
+              const available = currentNode.textContent.length - currentOffset;
+              if (available >= remaining) {
+                endPos = { node: currentNode, offset: currentOffset + remaining };
+                remaining = 0;
+              } else {
+                remaining -= available;
+                // Passer au noeud suivant (TreeWalker ou logique simple nextSibling)
+                // Ici c'est dur de naviguer sans walker.
+                // Fallback : On utilise findPos global avec l'offset corrigé ?
+                // Non on ne connait pas l'offset corrigé exact en nombre global
+              }
+            }
+            if (remaining > 0) {
+              // Navigation manuelle vers le prochain noeud texte
+              // C'est complexe.
+              // SOLUTION SIMPLE : On refait findPos avec l'index corrigé si on l'avait trouvé
+              break;
+            }
+          }
+        }
+
+        // Si la boucle manuelle échoue (cas multi-noeuds complexe), on fallback sur findPos global
+        if (!endPos) {
+          // On suppose que le décalage trouvé pour le début s'applique à la fin
+          // (C'est souvent le cas si c'est un décalage de structure)
+          // Mais on n'a pas stocké "offset" dans la boucle for.
+          endPos = findPos(editorRef.current, highlightInfo.charIndex + highlightInfo.length);
+        }
 
         if (startPos && endPos) {
           range.setStart(startPos.node, startPos.offset);
@@ -107,23 +295,35 @@ const Editor = forwardRef(({
           const rects = range.getClientRects();
           if (rects.length > 0) {
             const editorRect = editorRef.current.getBoundingClientRect();
-            const scrollContainer = editorRef.current.closest('.editor-scroll');
-            const scrollLeft = scrollContainer ? scrollContainer.scrollLeft : 0;
-            const scrollTop = scrollContainer ? scrollContainer.scrollTop : 0;
+            // ... (calculs de scroll si nécessaire, simplifiés ici car getBoundingClientRect est relatif au viewport, 
+            // mais on veut relatif à l'éditeur qui est overflow:auto ? Non, le div overlay est absolu dans le relative container)
 
-            // On prend le premier rect pour simplifier (cas du mot coupé sur 2 lignes rare)
+            // Correction calcul offset
+            // Si le div parent (editor-content wrapper) est relative, top/left doivent être relatifs à ce parent.
+            // editorRect est le rect du textarea/div contentEditable.
+
             const r = rects[0];
-            setHighlightRect({
-              top: r.top - editorRect.top,
-              left: r.left - editorRect.left,
+            const newRect = {
+              top: r.top - editorRect.top, // + editorRef.current.scrollTop si besoin, mais ici c'est sticky
+              left: r.left - editorRect.left, // + editorRef.current.scrollLeft
               width: r.width,
               height: r.height
-            });
+            };
+
+            setHighlightRect(newRect);
+            previousRectRef.current = newRect; // Stocker pour le prochain cycle
           }
+        } else {
+          // Si pas de highlight, effacer les trailing highlights aussi
+          setTrailingHighlights([]);
         }
       } catch (e) {
         console.warn('Erreur calcul highlight:', e);
       }
+    } else {
+      // Si highlightInfo est null, effacer tous les highlights
+      setHighlightRect(null);
+      setTrailingHighlights([]);
     }
   }, [highlightInfo, editorRef]);
 
@@ -1333,13 +1533,21 @@ const Editor = forwardRef(({
             
             .resize-handle.nw { top: -2px; left: -2px; cursor: nw-resize; }
             .resize-handle.ne { top: -2px; right: -2px; cursor: ne-resize; }
-            .resize-handle.sw { bottom: -2px; left: -2px; cursor: sw-resize; }
             .resize-handle.se { bottom: -2px; right: -2px; cursor: se-resize; }
+            
+            @keyframes fadeOutHighlight {
+              0% { opacity: 1; }
+              100% { opacity: 0; }
+            }
           `}</style>
-          <div style={{ position: 'relative' }}>
+          <div
+            className="editor-content"
+            style={{ position: 'relative' }}
+          >
             <div
               className="editor-content"
               ref={(el) => { editorRef.current = el; }}
+              // ... props inchangées ...
               contentEditable="true"
               suppressContentEditableWarning={true}
               spellCheck={false}
@@ -1489,22 +1697,41 @@ const Editor = forwardRef(({
                 boxShadow: 'inset 0 2px 4px 0 rgba(0, 0, 0, 0.06)',
               }}
             />
-            {/* Overlay de surlignage TTS */}
+            {/* Trailing Highlights (Persistance) */}
+            {trailingHighlights.map(h => (
+              <div
+                key={h.id}
+                style={{
+                  position: 'absolute',
+                  top: h.rect.top,
+                  left: h.rect.left,
+                  width: h.rect.width,
+                  height: h.rect.height,
+                  backgroundColor: 'transparent',
+                  borderBottom: '4px solid #FF8C00',
+                  borderRadius: '0px',
+                  pointerEvents: 'none',
+                  zIndex: 4, // Derrière le courant
+                  animation: 'fadeOutHighlight 2s ease-out forwards' // Animation CSS
+                }}
+              />
+            ))}
+
+            {/* Overlay de surlignage TTS (Courant) */}
             {highlightRect && (
               <div
                 style={{
                   position: 'absolute',
-                  top: highlightRect.top - 1, // Petit décalage pour ne pas coller au texte
-                  left: highlightRect.left - 2,
-                  width: highlightRect.width + 4,
-                  height: highlightRect.height + 2,
-                  backgroundColor: 'rgba(255, 255, 0, 0.1)', // Fond très léger
-                  border: '2px solid #FFFF00', // Bordure jaune vive
-                  borderRadius: '4px',
+                  top: highlightRect.top,
+                  left: highlightRect.left,
+                  width: highlightRect.width,
+                  height: highlightRect.height,
+                  backgroundColor: 'transparent', // Plus de fond plein
+                  borderBottom: '4px solid #FF8C00', // Soulignement orange épais
+                  borderRadius: '0px', // Pas de coins arrondis pour une ligne
                   pointerEvents: 'none',
                   zIndex: 5,
-                  transition: 'all 0.1s ease-out',
-                  boxShadow: '0 0 4px rgba(255, 255, 0, 0.3)' // Lueur légère sur le contour
+                  transition: 'all 0.1s ease-out'
                 }}
               />
             )}

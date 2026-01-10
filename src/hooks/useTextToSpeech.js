@@ -76,7 +76,10 @@ const useTextToSpeech = (options = {}) => {
     const handleEnd = useCallback(() => {
         setIsSpeaking(false);
         setIsPaused(false);
-        setHighlightInfo(null);
+        // Petit délai pour laisser le dernier mot surligné visible
+        setTimeout(() => {
+            setHighlightInfo(null);
+        }, 500);
         charIndexRef.current = 0; // Réinitialiser à la fin
     }, []);
 
@@ -150,14 +153,20 @@ const useTextToSpeech = (options = {}) => {
             const globalIndex = startOffset + event.charIndex;
             charIndexRef.current = globalIndex;
 
-            // Extraire la longueur du mot en cours
+            // Extraire le mot pour la vérification
             const remainingText = text.substring(globalIndex);
-            const wordMatch = remainingText.match(/^\w+/);
+            // Regex "Glouton intelligent" : Prend tout mais s'arrête au dernier caractère alphanumérique
+            // Ex: "07/11/2025---" -> "07/11/2025"
+            // Ex: "l'énergie" -> "l'énergie"
+            // Ex: "fin." -> "fin"
+            const wordMatch = remainingText.match(/^[^\s]*[a-zA-Z0-9\u00C0-\u024F]/);
             const wordLength = wordMatch ? wordMatch[0].length : 1;
+            const wordText = wordMatch ? wordMatch[0] : '';
 
             setHighlightInfo({
                 charIndex: globalIndex,
-                length: wordLength
+                length: wordLength,
+                word: wordText // Nouveau champ pour resync
             });
         };
 
