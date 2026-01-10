@@ -38,6 +38,11 @@ const useTextToSpeech = (options = {}) => {
             // Charger les voix (asynchrone sur certains navigateurs)
             const loadVoices = () => {
                 const availableVoices = window.speechSynthesis.getVoices();
+                console.log('--- TOUTES LES VOIX DÉTECTÉES PAR LE NAVIGATEUR ---');
+                availableVoices.forEach((v, i) => {
+                    console.log(`[${i}] ${v.name} (${v.lang}) - Local: ${v.localService} - Default: ${v.default}`);
+                });
+                console.log('--------------------------------------------------');
                 setVoices(availableVoices);
             };
 
@@ -124,7 +129,7 @@ const useTextToSpeech = (options = {}) => {
             }
         } else {
             // Fallback intelligent : chercher une voix française par défaut
-            const frenchVoice = voices.find(v => v.lang.startsWith('fr'));
+            const frenchVoice = voices.find(v => v.lang.toLowerCase().startsWith('fr'));
             if (frenchVoice) {
                 utterance.voice = frenchVoice;
             }

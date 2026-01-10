@@ -336,7 +336,18 @@ const ThemeSettings = ({
 
           {/* Sélection de la voix */}
           <div style={{ marginBottom: '4px' }}>
-            <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '2px' }}>Voix</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
+              <div style={{ fontSize: '12px', color: '#6b7280' }}>Voix</div>
+              <label style={{ fontSize: '10px', color: '#6b7280', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '2px' }}>
+                <input
+                  type="checkbox"
+                  checked={settings.showAllLanguages || false}
+                  onChange={e => updateSetting('showAllLanguages', e.target.checked)}
+                  style={{ width: '12px', height: '12px' }}
+                />
+                Toutes langues
+              </label>
+            </div>
             <select
               style={styles.select}
               value={settings.voiceName || ''}
@@ -344,10 +355,15 @@ const ThemeSettings = ({
             >
               <option value="">Par défaut (Automatique)</option>
               {voices
-                .filter(v => v.lang.startsWith('fr') || v.lang.startsWith('en')) // Filtrer pour FR et EN principalement
+                .filter(v => {
+                  if (settings.showAllLanguages) return true;
+                  // Filtrer pour toutes les variantes de français par défaut
+                  return v.lang.toLowerCase().startsWith('fr');
+                })
+                .sort((a, b) => a.name.localeCompare(b.name)) // Tri par nom
                 .map(voice => (
                   <option key={voice.name} value={voice.name}>
-                    {voice.name} ({voice.lang})
+                    {voice.name} ({voice.lang}){voice.localService ? '' : ' ☁️'}
                   </option>
                 ))}
             </select>
