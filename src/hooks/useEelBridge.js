@@ -152,7 +152,8 @@ export const useEelBridge = (content, setContent, viewMode, notifyExternalUpdate
             };
 
             // Récupérer le document complet (texte + images) pour sauvegarde Python
-            window.readDocumentData = async function () {
+            // IMPORTANT : fonction SYNCHRONE (pas async) — Eel ne gère pas les Promises
+            window.readDocumentData = function () {
                 console.log('💾 [readDocumentData] Python demande le document complet...');
 
                 try {
@@ -162,62 +163,83 @@ export const useEelBridge = (content, setContent, viewMode, notifyExternalUpdate
                         htmlContent = markdownToHtml(content);
                     }
 
-                    // Parser le HTML pour trouver les images
-                    const parser = new DOMParser();
-                    const doc = parser.parseFromString(htmlContent, 'text/html');
-                    const images = doc.querySelectorAll('img');
+                    // Extraire les données des images LIVE depuis le DOM (déjà chargées → synchrone)
+                    const editorElement = document.querySelector('.editor-content');
+                    const liveImages = editorElement ? editorElement.querySelectorAll('img') : [];
+                    console.log(`🔍 [readDocumentData] ${liveImages.length} image(s) live dans le DOM`);
 
-                    console.log(`🔍 [readDocumentData] ${images.length} image(s) trouvée(s)`);
-
-                    const imageList = [];
-                    let imageIndex = 0;
-
-                    for (const img of images) {
+                    // Map src → {base64, mimeType} depuis les images rendues
+                    const srcToData = {};
+                    for (const img of liveImages) {
                         const src = img.getAttribute('src');
                         if (!src) continue;
 
                         try {
-                            // Récupérer le blob depuis n'importe quel type de src (blob:, data:, etc.)
-                            const response = await fetch(src);
-                            const blob = await response.blob();
+                            // data: URL → extraire le base64 directement (pas besoin de canvas)
+                            if (src.startsWith('data:')) {
+                                const matches = src.match(/^data:([^;]+);base64,(.+)$/);
+                                if (matches) {
+                                    srcToData[src] = { base64: matches[2], mimeType: matches[1] };
+                                }
+                                continue;
+                            }
 
-                            // Déterminer le type MIME et l'extension
-                            const mimeType = blob.type || 'image/png';
-                            const extension = mimeType.split('/')[1] || 'png';
-
-                            // Générer un nom de fichier avec timestamp
-                            const now = new Date();
-                            const timestamp = now.getFullYear().toString() +
-                                String(now.getMonth() + 1).padStart(2, '0') +
-                                String(now.getDate()).padStart(2, '0') + '_' +
-                                String(now.getHours()).padStart(2, '0') +
-                                String(now.getMinutes()).padStart(2, '0') +
-                                String(now.getSeconds()).padStart(2, '0');
-                            const baseName = (img.alt || 'image').replace(/\.[^/.]+$/, '');
-                            const filename = `${baseName}_${timestamp}_${imageIndex}.${extension}`;
-
-                            // Convertir en base64
-                            const base64 = await new Promise((resolve) => {
-                                const reader = new FileReader();
-                                reader.onload = () => {
-                                    // Retirer le préfixe "data:image/png;base64,"
-                                    const result = reader.result;
-                                    const base64Data = result.split(',')[1];
-                                    resolve(base64Data);
-                                };
-                                reader.readAsDataURL(blob);
-                            });
-
-                            imageList.push({ filename, data: base64, mimeType });
-
-                            // Remplacer le src dans le HTML par le chemin relatif
-                            img.setAttribute('src', `./images/${filename}`);
-
-                            console.log(`✅ [readDocumentData] Image ${imageIndex}: ${filename} (${Math.round(blob.size / 1024)}KB)`);
-                            imageIndex++;
+                            // blob: URL ou autre → canvas synchrone (l'image est déjà chargée)
+                            if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+                                const canvas = document.createElement('canvas');
+                                canvas.width = img.naturalWidth;
+                                canvas.height = img.naturalHeight;
+                                const ctx = canvas.getContext('2d');
+                                ctx.drawImage(img, 0, 0);
+                                const mimeType = 'image/png';
+                                const dataUrl = canvas.toDataURL(mimeType);
+                                const base64 = dataUrl.split(',')[1];
+                                srcToData[src] = { base64, mimeType };
+                            } else {
+                                console.warn(`⚠️ [readDocumentData] Image non chargée, ignorée: ${src.substring(0, 50)}`);
+                            }
                         } catch (imgError) {
-                            console.warn(`⚠️ [readDocumentData] Image ignorée (src inaccessible):`, src, imgError);
+                            console.warn(`⚠️ [readDocumentData] Impossible d'extraire l'image:`, imgError);
                         }
+                    }
+
+                    // Parser le HTML pour remplacer les src par des chemins relatifs
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(htmlContent, 'text/html');
+                    const parsedImages = doc.querySelectorAll('img');
+
+                    const imageList = [];
+                    let imageIndex = 0;
+
+                    for (const img of parsedImages) {
+                        const src = img.getAttribute('src');
+                        if (!src) continue;
+
+                        const imgData = srcToData[src];
+                        if (!imgData) {
+                            console.warn(`⚠️ [readDocumentData] Image sans données live, ignorée: ${src.substring(0, 50)}`);
+                            continue;
+                        }
+
+                        // Générer un nom de fichier avec timestamp
+                        const extension = imgData.mimeType.split('/')[1] || 'png';
+                        const now = new Date();
+                        const timestamp = now.getFullYear().toString() +
+                            String(now.getMonth() + 1).padStart(2, '0') +
+                            String(now.getDate()).padStart(2, '0') + '_' +
+                            String(now.getHours()).padStart(2, '0') +
+                            String(now.getMinutes()).padStart(2, '0') +
+                            String(now.getSeconds()).padStart(2, '0');
+                        const baseName = (img.alt || 'image').replace(/\.[^/.]+$/, '');
+                        const filename = `${baseName}_${timestamp}_${imageIndex}.${extension}`;
+
+                        imageList.push({ filename, data: imgData.base64, mimeType: imgData.mimeType });
+
+                        // Remplacer le src dans le HTML parsé par le chemin relatif
+                        img.setAttribute('src', `./images/${filename}`);
+
+                        console.log(`✅ [readDocumentData] Image ${imageIndex}: ${filename}`);
+                        imageIndex++;
                     }
 
                     // Convertir le HTML modifié en Markdown
@@ -233,7 +255,8 @@ export const useEelBridge = (content, setContent, viewMode, notifyExternalUpdate
             };
 
             // Charger un document complet (texte + images) depuis Python
-            window.writeDocumentData = async function (data) {
+            // IMPORTANT : fonction SYNCHRONE (pas async) — Eel ne gère pas les Promises
+            window.writeDocumentData = function (data) {
                 console.log('📂 [writeDocumentData] Python envoie un document complet...');
 
                 try {
@@ -245,8 +268,9 @@ export const useEelBridge = (content, setContent, viewMode, notifyExternalUpdate
 
                     console.log(`📄 [writeDocumentData] Markdown: ${data.markdown.length} chars, ${(data.images || []).length} image(s)`);
 
-                    // Construire le mapping filename → blobUrl et sauvegarder en IndexedDB
+                    // Construire le mapping filename → blobUrl et garder les blobs en mémoire
                     const filenameToBlob = {};
+                    const filenameToActualBlob = {};
 
                     for (const image of (data.images || [])) {
                         try {
@@ -261,6 +285,7 @@ export const useEelBridge = (content, setContent, viewMode, notifyExternalUpdate
                             // Créer une blob URL pour l'affichage
                             const blobUrl = URL.createObjectURL(blob);
                             filenameToBlob[image.filename] = blobUrl;
+                            filenameToActualBlob[image.filename] = blob;
 
                             console.log(`✅ [writeDocumentData] Image décodée: ${image.filename} (${Math.round(blob.size / 1024)}KB)`);
                         } catch (imgError) {
@@ -272,7 +297,6 @@ export const useEelBridge = (content, setContent, viewMode, notifyExternalUpdate
                     let htmlContent = markdownToHtml(data.markdown);
 
                     // Remplacer les chemins ./images/filename par les blob URLs
-                    // et sauvegarder en IndexedDB si data-image-id présent
                     const tempDiv = document.createElement('div');
                     tempDiv.innerHTML = htmlContent;
 
@@ -288,21 +312,21 @@ export const useEelBridge = (content, setContent, viewMode, notifyExternalUpdate
                             if (blobUrl) {
                                 img.setAttribute('src', blobUrl);
 
-                                // Sauvegarder en IndexedDB pour la persistance F5
+                                // Sauvegarder en IndexedDB (fire-and-forget, pas de await)
                                 let imageId = img.getAttribute('data-image-id');
                                 if (!imageId) {
-                                    // Pas d'ID existant → en générer un nouveau
                                     imageId = crypto.randomUUID();
                                     img.setAttribute('data-image-id', imageId);
                                 }
-                                // Récupérer le blob depuis l'URL pour IndexedDB
-                                try {
-                                    const response = await fetch(blobUrl);
-                                    const blob = await response.blob();
-                                    await saveImage(imageId, blob);
-                                    console.log(`💾 [writeDocumentData] Image sauvegardée IndexedDB: ${imageId} (${filename})`);
-                                } catch (dbError) {
-                                    console.warn(`⚠️ [writeDocumentData] Échec IndexedDB pour ${filename}:`, dbError);
+
+                                // Utiliser directement le blob déjà en mémoire (pas de fetch)
+                                const blob = filenameToActualBlob[filename];
+                                if (blob) {
+                                    saveImage(imageId, blob).then(() => {
+                                        console.log(`💾 [writeDocumentData] Image sauvegardée IndexedDB: ${imageId} (${filename})`);
+                                    }).catch((dbError) => {
+                                        console.warn(`⚠️ [writeDocumentData] Échec IndexedDB pour ${filename}:`, dbError);
+                                    });
                                 }
 
                                 console.log(`🔗 [writeDocumentData] ${filename} → ${blobUrl}`);
