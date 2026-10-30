@@ -387,6 +387,28 @@ export const useEelBridge = (content, setContent, viewMode, notifyExternalUpdate
         }
     }, [content, setContent, viewMode, notifyExternalUpdate]);
 
+    // Signaler à Python l'ouverture et la fermeture de l'éditeur (on_editor_open / on_editor_close)
+    // Déclaré APRÈS l'effet d'exposition : les fonctions existent quand Python reçoit le signal
+    // et charge un document. Avant l'ouverture du WebSocket, eel.js met l'appel en file d'attente.
+    useEffect(() => {
+        if (!isEelAvailable) return undefined;
+
+        if (typeof window.eel.on_editor_open === 'function') {
+            window.eel.on_editor_open();
+            console.log('📡 Python notifié : éditeur ouvert');
+        }
+
+        // Au mieux : le WebSocket peut se fermer avant l'envoi. Python remet de toute façon
+        // son état à zéro quand eel.start() rend la main.
+        const notifierFermeture = () => {
+            if (typeof window.eel.on_editor_close === 'function') {
+                window.eel.on_editor_close();
+            }
+        };
+        window.addEventListener('beforeunload', notifierFermeture);
+        return () => window.removeEventListener('beforeunload', notifierFermeture);
+    }, [isEelAvailable]);
+
     // Cleanup lors du démontage
     useEffect(() => {
         return () => {
