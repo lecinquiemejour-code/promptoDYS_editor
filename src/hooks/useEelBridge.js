@@ -406,7 +406,21 @@ export const useEelBridge = (content, setContent, viewMode, notifyExternalUpdate
             }
         };
         window.addEventListener('beforeunload', notifierFermeture);
-        return () => window.removeEventListener('beforeunload', notifierFermeture);
+
+        // Python demande la fermeture de la fenêtre quand on ferme le panneau de contrôle.
+        // window.close() déclenche beforeunload : sauvegarde locale et on_editor_close() comme
+        // pour une fermeture manuelle. Autorisé car la fenêtre --app n'a qu'une page d'historique.
+        window.closeEditor = () => window.close();
+        try {
+            window.eel.expose(window.closeEditor, 'closeEditor');
+        } catch (error) {
+            console.warn('⚠️ Erreur exposition Eel (closeEditor):', error);
+        }
+
+        return () => {
+            window.removeEventListener('beforeunload', notifierFermeture);
+            delete window.closeEditor;
+        };
     }, [isEelAvailable]);
 
     // Cleanup lors du démontage
